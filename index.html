@@ -1,0 +1,2857 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Sid Grid Showdown</title>
+<style>
+  :root {
+    --bg: #10131a;
+    --panel: #151922;
+    --card: #1a1f29;
+    --card-raised: #1e2430;
+    --border: #262c38;
+    --border-soft: #1e2430;
+    --text: #e7eaf0;
+    --text-dim: #8992a3;
+    --text-faint: #565f70;
+    --accent: #5b8cff;
+    --accent-soft: #33436b;
+    --accent-wash: #1b2540;
+    --danger: #e2596b;
+    --danger-wash: #3a1f26;
+    --ok: #4fb286;
+    --warn: #e0a83c;
+    --warn-wash: #3a2f18;
+    --radius-s: 6px;
+    --radius-m: 10px;
+    font-size: 16px;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    min-height: 100vh;
+    line-height: 1.45;
+  }
+
+  ::selection { background: var(--accent-soft); color: var(--text); }
+  button { font-family: inherit; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+  }
+
+  @keyframes fadeSlideIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes popIn { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
+
+  .fade-in { animation: fadeSlideIn 0.22s ease-out; }
+
+  /* ---------- Layout shell ---------- */
+
+  .shell { display: flex; min-height: 100vh; }
+
+  .rail {
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    width: 68px;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 18px 0;
+    z-index: 40;
+    transition: width 0.18s ease;
+  }
+  .rail.expanded { width: 216px; align-items: stretch; }
+
+  .rail-toggle {
+    width: 40px; height: 40px;
+    border-radius: var(--radius-s);
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-dim);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    margin: 0 auto 22px;
+    flex-shrink: 0;
+    transition: border-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
+  }
+  .rail.expanded .rail-toggle { margin: 0 14px 22px; }
+  .rail-toggle:hover { border-color: var(--border); color: var(--text); }
+  .rail-toggle:active { transform: scale(0.94); }
+
+  .rail-nav { display: flex; flex-direction: column; gap: 4px; width: 100%; padding: 0 10px; }
+
+  .rail-item {
+    display: flex; align-items: center; gap: 12px;
+    height: 42px; padding: 0 11px;
+    border-radius: var(--radius-s);
+    color: var(--text-dim);
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    border: 1px solid transparent;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }
+  .rail-item svg { flex-shrink: 0; width: 19px; height: 19px; }
+  .rail-item span { font-size: 0.87rem; opacity: 0; transition: opacity 0.12s ease; }
+  .rail.expanded .rail-item span { opacity: 1; }
+  .rail-item:hover { background: var(--card); color: var(--text); }
+  .rail-item.active { background: var(--accent-wash); color: var(--text); border-color: var(--accent-soft); }
+  .rail-item.active svg { color: var(--accent); }
+  .rail-item:active { transform: scale(0.98); }
+
+  .rail-foot { margin-top: auto; width: 100%; padding: 0 10px; }
+
+  .main { margin-left: 68px; flex: 1; min-width: 0; padding: 36px 40px 80px; max-width: 1180px; }
+
+  @media (max-width: 720px) {
+    .main { padding: 26px 18px 70px; }
+    .rail.expanded { width: 200px; }
+  }
+
+  /* ---------- Header ---------- */
+
+  .page-head { margin-bottom: 30px; }
+  .page-head h1 { font-size: 1.9rem; font-weight: 700; letter-spacing: -0.02em; margin: 0 0 6px; }
+  .page-head p { color: var(--text-dim); font-size: 0.92rem; margin: 0; max-width: 62ch; }
+
+  /* ---------- Totals panel ---------- */
+
+  .totals {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 18px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+    padding: 22px 26px;
+    margin-bottom: 26px;
+  }
+  .totals-main { display: flex; align-items: baseline; gap: 14px; }
+  .totals-main .num { font-size: 2.6rem; font-weight: 700; letter-spacing: -0.03em; color: var(--accent); line-height: 1; transition: color 0.2s ease; }
+  .totals-main .lbl { color: var(--text-dim); font-size: 0.88rem; }
+  .totals-side { display: flex; gap: 28px; }
+  .totals-side div { text-align: right; }
+  .totals-side .n { font-size: 1.2rem; font-weight: 600; }
+  .totals-side .l { color: var(--text-faint); font-size: 0.76rem; margin-top: 2px; }
+
+  /* ---------- Buttons ---------- */
+
+  .btn {
+    border-radius: var(--radius-s);
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    padding: 9px 16px;
+    font-size: 0.87rem;
+    font-weight: 500;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: border-color 0.15s ease, background 0.15s ease, transform 0.1s ease;
+  }
+  .btn:hover { border-color: #3a4257; background: var(--card-raised); }
+  .btn:active { transform: scale(0.97); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn:disabled:active { transform: none; }
+
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: #0c1220; font-weight: 600; }
+  .btn-primary:hover { background: #6f9aff; border-color: #6f9aff; }
+  .btn-ghost { background: transparent; }
+  .btn-danger { background: transparent; border-color: var(--danger); color: var(--danger); }
+  .btn-danger:hover { background: var(--danger-wash); }
+
+  .toolbar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 24px; align-items: center; }
+
+  /* ---------- Player cards (builder) ---------- */
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 260px));
+    justify-content: flex-start;
+    align-content: start;
+    gap: 14px;
+  }
+
+  .pcard {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent-soft);
+    border-radius: var(--radius-m);
+    padding: 16px 18px;
+    position: relative;
+    align-self: start;
+    transition: border-color 0.15s ease;
+  }
+  .pcard .idx { position: absolute; top: 14px; right: 16px; font-size: 0.72rem; color: var(--text-faint); }
+
+  .field-label { font-size: 0.74rem; color: var(--text-faint); margin: 0 0 6px; }
+  .field-gap { margin-top: 13px; }
+
+  input[type="text"], input[type="number"] {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 9px 11px;
+    border-radius: var(--radius-s);
+    font-size: 0.92rem;
+    outline: none;
+    transition: border-color 0.15s ease;
+  }
+  input[type="text"]:focus, input[type="number"]:focus { border-color: var(--accent); }
+
+  .pcard-points {
+    margin-top: 15px; padding-top: 13px;
+    border-top: 1px solid var(--border-soft);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .pcard-points .pl { color: var(--text-faint); font-size: 0.76rem; }
+  .pcard-points .pv { font-size: 1.35rem; font-weight: 700; color: var(--accent); transition: color 0.15s ease; }
+
+  /* ---------- Custom select ---------- */
+
+  .xsel { position: relative; width: 100%; }
+  .xsel-trigger {
+    width: 100%;
+    display: flex; align-items: center; gap: 8px;
+    text-align: left;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 34px 8px 10px;
+    border-radius: var(--radius-s);
+    font-size: 0.92rem;
+    cursor: pointer;
+    position: relative;
+    transition: border-color 0.15s ease;
+  }
+  .xsel-trigger .xsel-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .xsel-trigger::after {
+    content: "";
+    position: absolute;
+    right: 13px; top: 50%;
+    width: 7px; height: 7px;
+    border-right: 1.5px solid var(--text-dim);
+    border-bottom: 1.5px solid var(--text-dim);
+    transform: translateY(-70%) rotate(45deg);
+    transition: transform 0.15s ease;
+    pointer-events: none;
+  }
+  .xsel.open .xsel-trigger::after { transform: translateY(-30%) rotate(-135deg); }
+  .xsel.open .xsel-trigger { border-color: var(--accent); }
+
+  .xsel-list {
+    position: absolute;
+    left: 0; right: 0; top: calc(100% + 5px);
+    background: var(--card-raised);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-s);
+    max-height: 260px;
+    overflow-y: auto;
+    z-index: 60;
+    display: none;
+    box-shadow: 0 10px 26px rgba(0,0,0,0.4);
+    transform-origin: top center;
+  }
+  .xsel.open .xsel-list { display: block; animation: popIn 0.12s ease-out; }
+
+  .xsel-opt { display: flex; align-items: center; gap: 9px; padding: 7px 12px; font-size: 0.88rem; color: var(--text-dim); cursor: pointer; transition: background 0.12s ease, color 0.12s ease; }
+  .xsel-opt:hover { background: var(--accent-wash); color: var(--text); }
+  .xsel-opt.active { color: var(--accent); }
+
+  .xsel-list::-webkit-scrollbar { width: 8px; }
+  .xsel-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  /* ---------- Rank badges (original stylized emblems, not official game art) ---------- */
+
+  .rbadge-wrap { display: inline-flex; flex-direction: column; align-items: center; gap: 3px; flex-shrink: 0; }
+  .rbadge { width: 17px; height: 17px; display: inline-block; box-shadow: 0 0 0 1px rgba(255,255,255,0.06) inset; transition: transform 0.15s ease; }
+  .rbadge.circ { border-radius: 50%; }
+  .rbadge.dia { clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
+  .rbadge.pent { clip-path: polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%); }
+  .rbadge.hex { clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%); }
+  .rbadge.star { clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); }
+  .rbadge.ring { box-shadow: 0 0 0 2px var(--bg) inset, 0 0 8px rgba(255,255,255,0.25); }
+  .rbadge-dots { display: flex; gap: 2px; }
+  .rbadge-dots i { width: 3px; height: 3px; border-radius: 50%; background: var(--border); display: block; font-style: normal; }
+  .rbadge-dots i.on { background: var(--text-dim); }
+  .xsel-opt:hover .rbadge, .xsel-trigger:hover .rbadge { transform: scale(1.18); }
+
+  /* ---------- Role badges (Vanguard / Duelist / Strategist) ---------- */
+
+  .role-badges-wrap { display: inline-flex; align-items: center; gap: 3px; flex-shrink: 0; }
+  .role-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 16px; height: 16px;
+    border-radius: 4px;
+    font-size: 0.64rem; font-weight: 700;
+    color: #0c1220;
+    flex-shrink: 0;
+  }
+  .role-badge-none { background: var(--border); color: var(--text-faint); font-weight: 500; }
+  .role-badge-text { display: inline-flex; align-items: center; gap: 5px; font-size: 0.82rem; color: var(--text-dim); }
+
+  /* ---------- Teams view ---------- */
+
+  .empty-state { border: 1px dashed var(--border); border-radius: var(--radius-m); padding: 48px 24px; text-align: center; color: var(--text-dim); }
+  .empty-state p { margin: 6px 0 18px; font-size: 0.9rem; }
+
+  .team-list { display: flex; flex-direction: column; gap: 10px; }
+
+  .team-row {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+    padding: 15px 18px;
+    cursor: pointer;
+    transition: border-color 0.15s ease;
+  }
+  .team-row:hover { border-color: #33394a; }
+
+  .team-row-top { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+  .team-row-name { font-weight: 600; font-size: 1rem; }
+  .team-row-meta { color: var(--text-faint); font-size: 0.78rem; margin-top: 3px; }
+
+  .team-row-stats { display: flex; align-items: center; gap: 22px; flex-shrink: 0; }
+  .team-row-stats .stat { text-align: right; }
+  .team-row-stats .stat .n { font-size: 1.15rem; font-weight: 700; color: var(--accent); }
+  .team-row-stats .stat .l { font-size: 0.7rem; color: var(--text-faint); }
+
+  .kebab {
+    width: 32px; height: 32px;
+    border-radius: var(--radius-s);
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--text-dim);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease, transform 0.1s ease;
+  }
+  .kebab:hover { border-color: var(--border); background: var(--card-raised); color: var(--text); }
+  .kebab:active { transform: scale(0.92); }
+  .kebab.sm { width: 24px; height: 24px; }
+  .kebab.sm svg { width: 13px; height: 13px; }
+
+  .team-row-detail { max-height: 0; overflow: hidden; transition: max-height 0.2s ease; }
+  .team-row.expanded .team-row-detail { max-height: 600px; margin-top: 14px; }
+
+  .mini-player-list { display: flex; flex-direction: column; gap: 6px; padding-top: 12px; border-top: 1px solid var(--border-soft); }
+  .mini-player-row { display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-dim); }
+  .mini-player-row b { color: var(--text); font-weight: 500; }
+  .mini-player-row .mp-pts { color: var(--accent); font-weight: 600; }
+
+  /* ---------- Compare view ---------- */
+
+  .compare-grid { display: grid; grid-template-columns: 1fr auto 1fr; gap: 20px; align-items: start; }
+  @media (max-width: 800px) {
+    .compare-grid { grid-template-columns: 1fr; }
+    .compare-vs { display: none; }
+  }
+
+  .compare-col { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-m); padding: 20px; }
+  .compare-col-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .compare-col-head h3 { margin: 0; font-size: 1.05rem; }
+
+  .mode-switch { display: flex; border: 1px solid var(--border); border-radius: var(--radius-s); overflow: hidden; margin-bottom: 16px; }
+  .mode-switch button { flex: 1; background: var(--card); border: none; color: var(--text-dim); padding: 8px 0; font-size: 0.82rem; cursor: pointer; transition: background 0.15s ease, color 0.15s ease; }
+  .mode-switch button.active { background: var(--accent-wash); color: var(--accent); }
+
+  .compare-vs { display: flex; align-items: center; justify-content: center; padding-top: 90px; }
+  .compare-vs .vs-badge {
+    width: 46px; height: 46px; border-radius: 50%;
+    border: 1px solid var(--border); background: var(--card);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.78rem; color: var(--text-faint); font-weight: 700;
+  }
+
+  .compare-mini-card { background: var(--card); border: 1px solid var(--border-soft); border-radius: var(--radius-s); padding: 10px 12px; margin-bottom: 8px; }
+  .compare-mini-row { display: flex; gap: 8px; align-items: center; }
+  .compare-mini-row input[type="text"] { flex: 1.3; }
+  .compare-mini-row .xsel { flex: 1; }
+  .compare-mini-remove {
+    width: 30px; height: 30px; flex-shrink: 0;
+    border-radius: var(--radius-s); border: 1px solid var(--border);
+    background: transparent; color: var(--text-faint); cursor: pointer;
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+  .compare-mini-remove:hover { color: var(--danger); border-color: var(--danger); }
+
+  .compare-summary {
+    margin-top: 22px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+    padding: 20px 24px;
+    display: flex; align-items: center; justify-content: space-around;
+    flex-wrap: wrap; gap: 20px;
+  }
+  .cs-side { text-align: center; }
+  .cs-side .cs-name { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 4px; }
+  .cs-side .cs-pts { font-size: 2.1rem; font-weight: 700; letter-spacing: -0.02em; transition: color 0.2s ease; }
+  .cs-side.leading .cs-pts { color: var(--accent); }
+  .cs-diff { text-align: center; color: var(--text-faint); font-size: 0.82rem; }
+  .cs-diff b { color: var(--text); }
+
+  /* ---------- Balance view ---------- */
+
+  .chip-list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+  .chip {
+    display: flex; align-items: center; gap: 9px;
+    padding: 8px 13px 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--card);
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+  }
+  .chip:hover { border-color: #3a4257; }
+  .chip.selected { border-color: var(--accent-soft); color: var(--text); background: var(--accent-wash); }
+  .chip-check {
+    width: 15px; height: 15px; border-radius: 4px;
+    border: 1.5px solid var(--text-faint);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+  .chip.selected .chip-check { background: var(--accent); border-color: var(--accent); }
+  .chip-check svg { width: 10px; height: 10px; opacity: 0; color: #0c1220; transition: opacity 0.1s ease; }
+  .chip.selected .chip-check svg { opacity: 1; }
+  .chip-pts { color: var(--text-faint); font-size: 0.78rem; }
+
+  .balance-banner {
+    border: 1px solid var(--accent-soft);
+    background: var(--accent-wash);
+    border-radius: var(--radius-m);
+    padding: 12px 16px;
+    font-size: 0.85rem;
+    color: var(--text);
+    margin-bottom: 18px;
+  }
+  .balance-banner.warn { border-color: var(--danger); background: var(--danger-wash); }
+
+  .matchup-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+    padding: 16px 18px;
+    margin-bottom: 12px;
+    transition: border-color 0.15s ease;
+  }
+  .matchup-card.unbalanced { border-color: var(--danger); }
+
+  .matchup-top { display: flex; align-items: center; gap: 14px; }
+  .matchup-teams { display: flex; align-items: center; gap: 16px; flex: 1; min-width: 0; }
+  .matchup-team { flex: 1; text-align: center; min-width: 0; }
+  .matchup-team .mt-name { font-weight: 600; font-size: 0.95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .matchup-team .mt-pts { color: var(--accent); font-weight: 700; font-size: 1.3rem; margin-top: 2px; }
+  .matchup-vs { color: var(--text-faint); font-size: 0.72rem; font-weight: 700; flex-shrink: 0; letter-spacing: 0.5px; }
+
+  .lock-btn {
+    width: 32px; height: 32px; flex-shrink: 0;
+    border-radius: var(--radius-s);
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-faint);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease, transform 0.1s ease;
+  }
+  .lock-btn svg { width: 15px; height: 15px; }
+  .lock-btn.locked { color: var(--accent); border-color: var(--accent-soft); background: var(--accent-wash); }
+  .lock-btn:active { transform: scale(0.9); }
+
+  .matchup-flag { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-soft); font-size: 0.82rem; }
+  .flag-warn { color: var(--danger); font-weight: 600; margin-bottom: 4px; }
+  .flag-suggest { color: var(--text-dim); }
+  .flag-suggest + .flag-suggest { margin-top: 4px; }
+
+  .bye-card {
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-m);
+    padding: 16px 18px;
+    margin-bottom: 12px;
+    color: var(--text-faint);
+    text-align: center;
+    font-size: 0.88rem;
+  }
+  .bye-card b { color: var(--text-dim); }
+
+  /* ---------- Team generator (Balance > Team Creator) ---------- */
+
+  .teamgen-config {
+    display: flex; align-items: flex-end; gap: 22px; flex-wrap: wrap;
+    background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-m);
+    padding: 18px 20px; margin-bottom: 18px;
+  }
+  .teamgen-field { display: flex; flex-direction: column; gap: 6px; }
+  .teamgen-field input[type="number"] { width: 90px; }
+  .teamgen-field .field-label { margin: 0; }
+  .teamgen-count { color: var(--text-dim); font-size: 0.85rem; margin-left: auto; }
+  .teamgen-count b { color: var(--text); }
+
+  .role-rules-panel {
+    background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-m);
+    padding: 16px 20px; margin-bottom: 18px;
+  }
+  .role-rules-row { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 12px; }
+  .role-rule-item {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--card); border: 1px solid var(--border-soft); border-radius: var(--radius-s);
+    padding: 9px 14px;
+  }
+  .role-rule-name { font-size: 0.86rem; font-weight: 600; white-space: nowrap; }
+  .rr-field { display: flex; flex-direction: column; gap: 3px; }
+  .rr-sublabel { font-size: 0.64rem; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.03em; }
+  .rr-field input[type="number"] { width: 58px; padding: 5px 7px; font-size: 0.82rem; }
+
+  .gen-teams-wrap { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; margin-top: 4px; }
+
+  .gen-team-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+    padding: 15px 17px;
+    transition: border-color 0.15s ease;
+  }
+  .gen-team-card.locked { border-color: var(--accent-soft); }
+  .gen-team-card.role-warn { border-color: var(--warn); }
+
+  .gen-team-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .gen-team-head input[type="text"] { font-weight: 600; padding: 6px 9px; }
+
+  .role-warn-icon { color: var(--warn); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: default; }
+  .role-warn-icon svg { width: 17px; height: 17px; }
+
+  .gen-team-role-issues {
+    color: var(--warn);
+    font-size: 0.76rem;
+    margin: -2px 0 10px;
+    padding: 7px 9px;
+    background: var(--warn-wash);
+    border-radius: var(--radius-s);
+    line-height: 1.4;
+  }
+
+  .gen-team-stats { display: flex; gap: 16px; margin-bottom: 8px; font-size: 0.76rem; color: var(--text-faint); }
+  .gen-team-stats b { color: var(--accent); font-size: 0.98rem; display: block; }
+
+  .gen-player-list { display: flex; flex-direction: column; }
+  .gen-player-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 0;
+    border-top: 1px solid var(--border-soft);
+    font-size: 0.85rem;
+  }
+  .gen-player-row:first-child { border-top: none; }
+  .gen-player-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .gen-player-pts { color: var(--accent); font-weight: 600; width: 30px; text-align: right; flex-shrink: 0; }
+
+  .gen-team-empty { color: var(--text-faint); font-size: 0.82rem; padding: 8px 0; text-align: center; }
+
+  .gen-team-foot { display: flex; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-soft); }
+  .gen-team-foot .btn { padding: 7px 12px; font-size: 0.82rem; }
+
+  .unassigned-box {
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-m);
+    padding: 16px 18px;
+    margin-top: 16px;
+  }
+  .unassigned-box .ua-title { font-size: 0.82rem; color: var(--text-dim); margin-bottom: 10px; }
+  .ua-player-list { display: flex; flex-direction: column; gap: 0; }
+
+  /* ---------- Players view ---------- */
+
+  .player-row {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+    padding: 12px 16px;
+    display: flex; align-items: center; gap: 12px;
+    transition: border-color 0.15s ease;
+  }
+  .player-row:hover { border-color: #33394a; }
+  .player-row-name { flex: 1; font-weight: 500; font-size: 0.94rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .player-row-rank { color: var(--text-faint); font-size: 0.8rem; display: flex; align-items: center; gap: 7px; }
+  .player-row-pts { color: var(--accent); font-weight: 700; font-size: 1rem; width: 44px; text-align: right; }
+
+  .player-list { display: flex; flex-direction: column; gap: 8px; }
+
+  .modal-rank-preview {
+    display: flex; align-items: center; gap: 10px;
+    margin-top: 10px;
+    padding: 10px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-s);
+    font-size: 0.85rem;
+    color: var(--text-dim);
+  }
+  .modal-rank-preview .mp-pts-badge { margin-left: auto; color: var(--accent); font-weight: 700; }
+
+  /* ---------- Modal ---------- */
+
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(6, 8, 12, 0.65);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 100;
+    padding: 20px;
+  }
+  .modal { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-m); width: 100%; max-width: 420px; padding: 22px; animation: popIn 0.16s ease-out; }
+  .modal-title { font-size: 1.05rem; font-weight: 600; margin-bottom: 14px; }
+  .modal-body { margin-bottom: 18px; color: var(--text-dim); font-size: 0.9rem; }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+  /* ---------- Context menu ---------- */
+
+  .ctx-menu {
+    position: fixed; z-index: 200;
+    background: var(--card-raised);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-s);
+    padding: 5px;
+    min-width: 190px;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.45);
+    animation: popIn 0.12s ease-out;
+    transform-origin: top left;
+  }
+  .ctx-item { padding: 8px 11px; font-size: 0.86rem; color: var(--text-dim); border-radius: 5px; cursor: pointer; transition: background 0.12s ease, color 0.12s ease; }
+  .ctx-item:hover { background: var(--accent-wash); color: var(--text); }
+  .ctx-item.danger:hover { background: var(--danger-wash); color: var(--danger); }
+  .ctx-divider { height: 1px; background: var(--border-soft); margin: 5px 3px; }
+
+  /* ---------- Toast ---------- */
+
+  #toastRoot { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); z-index: 300; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+  .toast {
+    background: var(--card-raised);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 11px 18px;
+    border-radius: var(--radius-s);
+    font-size: 0.86rem;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    box-shadow: 0 10px 24px rgba(0,0,0,0.4);
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+
+  /* ---------- Mobile ---------- */
+
+  @media (max-width: 600px) {
+    :root { font-size: 15px; }
+
+    .rail { width: 56px; padding: 14px 0; }
+    .rail.expanded { width: 74vw; max-width: 240px; }
+    .rail-toggle { width: 36px; height: 36px; margin-bottom: 16px; }
+    .rail.expanded .rail-toggle { margin: 0 10px 16px; }
+    .rail-item { height: 40px; }
+
+    .main { margin-left: 56px; padding: 18px 14px 64px; }
+
+    .page-head { margin-bottom: 22px; }
+    .page-head h1 { font-size: 1.4rem; }
+    .page-head p { font-size: 0.86rem; }
+
+    .totals { flex-direction: column; align-items: stretch; padding: 18px 18px; gap: 14px; }
+    .totals-main { justify-content: space-between; }
+    .totals-main .num { font-size: 2rem; }
+    .totals-side { justify-content: space-between; gap: 0; }
+    .totals-side div { text-align: left; }
+
+    .toolbar { gap: 8px; }
+    .toolbar .btn { flex: 1 1 auto; justify-content: center; }
+    #saveTeamBtn { margin-left: 0 !important; }
+
+    .grid { grid-template-columns: 1fr; }
+
+    .modal { padding: 18px; max-width: 100%; }
+    .modal-overlay { padding: 12px; }
+
+    .compare-col { padding: 16px; }
+    .compare-mini-row { flex-wrap: wrap; }
+    .compare-mini-row input[type="text"] { flex: 1 1 100%; }
+    .compare-mini-row .xsel { flex: 1 1 auto; }
+
+    .cs-side .cs-pts { font-size: 1.6rem; }
+    .compare-summary { padding: 16px 18px; justify-content: space-between; }
+
+    .chip-list { gap: 6px; }
+    .chip { padding: 7px 11px 7px 9px; font-size: 0.8rem; }
+
+    .teamgen-config { flex-direction: column; align-items: stretch; gap: 12px; padding: 14px 16px; }
+    .teamgen-field input[type="number"] { width: 100%; }
+    .teamgen-config .btn { width: 100%; justify-content: center; }
+    .teamgen-count { margin-left: 0; text-align: left; }
+
+    .role-rules-panel { padding: 14px 16px; }
+    .role-rules-row { flex-direction: column; gap: 8px; }
+    .role-rule-item { justify-content: space-between; width: 100%; }
+
+    .gen-teams-wrap { grid-template-columns: 1fr; }
+
+    .matchup-top { flex-wrap: wrap; }
+    .matchup-teams { gap: 8px; }
+    .matchup-team .mt-name { font-size: 0.84rem; }
+    .matchup-team .mt-pts { font-size: 1.05rem; }
+
+    .team-row-top { flex-wrap: wrap; align-items: flex-start; }
+    .team-row-stats { width: 100%; justify-content: space-between; gap: 12px; }
+
+    .mini-player-row { flex-wrap: wrap; }
+
+    .ctx-menu { min-width: 160px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <nav class="rail" id="rail">
+    <button class="rail-toggle" id="railToggle" title="Toggle menu">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+    </button>
+    <div class="rail-nav">
+      <div class="rail-item" data-view="builder">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3.5" y="3.5" width="7" height="7" rx="1.4"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.4"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.4"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.4"/></svg>
+        <span>Builder</span>
+      </div>
+      <div class="rail-item" data-view="players">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20c1.2-4.2 4.2-6.3 7.5-6.3s6.3 2.1 7.5 6.3"/></svg>
+        <span>Players</span>
+      </div>
+      <div class="rail-item" data-view="teams">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3.5 3.5 8 12 12.5 20.5 8 12 3.5Z"/><path d="M3.5 12 12 16.5 20.5 12"/><path d="M3.5 16 12 20.5 20.5 16"/></svg>
+        <span>Saved teams</span>
+      </div>
+      <div class="rail-item" data-view="compare">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 4v16"/><path d="M16 4v16"/><path d="M3.5 9 8 4l4.5 5"/><path d="M19.5 15 16 20l-4.5-5"/></svg>
+        <span>Compare</span>
+      </div>
+      <div class="rail-item" data-view="balance">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v18"/><path d="M5 7h14"/><path d="M5 7 2.5 13a3 3 0 0 0 5 0L5 7Z"/><path d="M19 7l-2.5 6a3 3 0 0 0 5 0L19 7Z"/><path d="M8 21h8"/></svg>
+        <span>Balance</span>
+      </div>
+    </div>
+    <div class="rail-foot"></div>
+  </nav>
+
+  <main class="main">
+
+    <!-- ===== BUILDER VIEW ===== -->
+    <section id="view-builder" class="view-section">
+      <div class="page-head">
+        <h1>The Sid Grid Showdown</h1>
+        <p>Set names and ranks for the current roster, then save it as a team once the group is balanced the way you want. Load a player straight from the players database, or type a new one in.</p>
+      </div>
+
+      <div class="totals">
+        <div class="totals-main">
+          <div class="num" id="totalPoints">0</div>
+          <div class="lbl">total points</div>
+        </div>
+        <div class="totals-side">
+          <div><div class="n" id="playerCount">0</div><div class="l">players</div></div>
+          <div><div class="n" id="avgPoints">0</div><div class="l">avg / player</div></div>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <button class="btn btn-primary" id="addPlayerBtn">Add player</button>
+        <button class="btn" id="removePlayerBtn">Remove player</button>
+        <button class="btn" id="saveTeamBtn" style="margin-left:auto;">Save as team</button>
+        <button class="btn btn-ghost" id="discardEditBtn" style="display:none;">Cancel edit</button>
+      </div>
+
+      <div class="grid" id="builderGrid"></div>
+    </section>
+
+    <!-- ===== PLAYERS VIEW ===== -->
+    <section id="view-players" class="view-section" style="display:none;">
+      <div class="page-head">
+        <h1>Players</h1>
+        <p>Keep a shared database of players and ranks. Reference them from the builder or pull the whole roster into the team generator in Balance.</p>
+      </div>
+      <div class="toolbar">
+        <button class="btn btn-primary" id="addPlayerDbBtn">Add player</button>
+      </div>
+      <div id="playersContainer"></div>
+    </section>
+
+    <!-- ===== TEAMS VIEW ===== -->
+    <section id="view-teams" class="view-section" style="display:none;">
+      <div class="page-head">
+        <h1>Saved teams</h1>
+        <p>Every roster saved from the builder lives here. Click a team to preview its players, or use the menu to edit, delete, or send it to Compare.</p>
+      </div>
+      <div id="teamsContainer"></div>
+    </section>
+
+    <!-- ===== COMPARE VIEW ===== -->
+    <section id="view-compare" class="view-section" style="display:none;">
+      <div class="page-head">
+        <h1>Compare</h1>
+        <p>Load two saved teams, build fresh ones, or mix both to see how a matchup balances out.</p>
+      </div>
+      <div class="compare-grid" id="compareGrid"></div>
+      <div class="compare-summary" id="compareSummary"></div>
+    </section>
+
+    <!-- ===== BALANCE VIEW ===== -->
+    <section id="view-balance" class="view-section" style="display:none;">
+      <div class="page-head">
+        <h1>Balance</h1>
+        <p id="balanceHeadText">Pick which saved teams are playing, then auto-generate matchups sorted for the closest possible point totals. Lock a matchup to keep it fixed, or shuffle the rest.</p>
+      </div>
+      <div class="mode-switch" id="balanceModeSwitch" style="max-width:340px;">
+        <button id="balanceModeMatchupsBtn">Matchups</button>
+        <button id="balanceModeTeamgenBtn">Team creator</button>
+      </div>
+      <div id="balanceMatchupsMode"></div>
+      <div id="balanceTeamgenMode" style="display:none;"></div>
+    </section>
+
+  </main>
+</div>
+
+<div id="toastRoot"></div>
+
+<script>
+(function(){
+
+  /* ============================================================
+     Ranks
+  ============================================================ */
+  const RANKS = [
+    "Bronze 3","Bronze 2","Bronze 1",
+    "Silver 3","Silver 2","Silver 1",
+    "Gold 3","Gold 2","Gold 1",
+    "Platinum 3","Platinum 2","Platinum 1",
+    "Diamond 3","Diamond 2","Diamond 1",
+    "Grandmaster 3","Grandmaster 2","Grandmaster 1",
+    "Celestial 3","Celestial 2","Celestial 1",
+    "Eternity",
+    "One Above All"
+  ];
+  const RANK_POINTS = {};
+  RANKS.forEach((r,i) => RANK_POINTS[r] = i + 1);
+  const RANK_OPTIONS = RANKS.map(r => ({ value: r, label: r }));
+
+  const MIN_CARDS = 1, MAX_CARDS = 18, DEFAULT_CARDS = 4;
+  const MIN_TEAM_SIZE = 1, MAX_TEAM_SIZE = 18, DEFAULT_TEAM_SIZE = 5;
+
+  // Original, minimalist stylized rank emblems (not official game art) so the
+  // dropdown still gives a visual cue for each tier without reproducing copyrighted assets.
+  const TIER_STYLE = {
+    "Bronze":       { shape: "dia",  color: "#b3703f" },
+    "Silver":       { shape: "circ", color: "#a7b0bd" },
+    "Gold":         { shape: "pent", color: "#e0b23c" },
+    "Platinum":     { shape: "hex",  color: "#49c2b8" },
+    "Diamond":      { shape: "dia",  color: "#5b9dff" },
+    "Grandmaster":  { shape: "star", color: "#a35bff" },
+    "Celestial":    { shape: "star", color: "#f4dd8c" },
+    "Eternity":      { shape: "circ ring", gradient: "linear-gradient(135deg,#ff9ad6,#8ad4ff)" },
+    "One Above All": { shape: "circ ring", gradient: "linear-gradient(135deg,#ffe9a8,#ffffff)" }
+  };
+
+  function parseRank(rank){
+    const parts = rank.split(" ");
+    const last = parts[parts.length-1];
+    const n = parseInt(last, 10);
+    if (!isNaN(n)) return { tier: parts.slice(0,-1).join(" "), division: n };
+    return { tier: rank, division: null };
+  }
+
+  function rankBadgeHTML(rank){
+    const meta = parseRank(rank);
+    const style = TIER_STYLE[meta.tier] || { shape: "circ", color: "#5b8cff" };
+    const bg = style.gradient ? style.gradient : style.color;
+    let dots = "";
+    if (meta.division){
+      const filled = 4 - meta.division;
+      dots = '<span class="rbadge-dots">' + [1,2,3].map(i => '<i class="'+(i<=filled?"on":"")+'"></i>').join("") + '</span>';
+    }
+    return '<span class="rbadge-wrap"><span class="rbadge ' + style.shape + '" style="background:' + bg + '"></span>' + dots + '</span>';
+  }
+
+  function closestRankToPoints(pts){
+    const clamped = Math.max(1, Math.min(RANKS.length, Math.round(pts)));
+    return RANKS[clamped-1];
+  }
+
+  /* ============================================================
+     Roles
+  ============================================================ */
+  const ROLES = ["Vanguard", "Duelist", "Strategist"];
+  const ROLE_COLOR = { Vanguard: "#5b8cff", Duelist: "#e2596b", Strategist: "#4fb286" };
+
+  function roleBadgeHTML(role){
+    return '<span class="role-badge" style="background:'+(ROLE_COLOR[role]||"#565f70")+'" title="'+escapeHtml(role)+'">'+escapeHtml(role[0])+'</span>';
+  }
+  function roleBadgesHTML(roles){
+    if (!roles || !roles.length) return '<span class="role-badge role-badge-none" title="No role set">–</span>';
+    return '<span class="role-badges-wrap">' + roles.map(roleBadgeHTML).join("") + '</span>';
+  }
+
+  // Small multi-select chip row for picking one or more roles. Mutates the
+  // `selectedRoles` array in place and calls onChange after every toggle so
+  // the caller can re-render (chips need to redraw to reflect selection).
+  function createRoleChips(selectedRoles, onChange){
+    const wrap = document.createElement("div");
+    wrap.className = "chip-list";
+    wrap.style.marginBottom = "0";
+    ROLES.forEach(role => {
+      const selected = selectedRoles.includes(role);
+      const chip = document.createElement("div");
+      chip.className = "chip" + (selected ? " selected" : "");
+      chip.innerHTML =
+        '<span class="chip-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 12 9 17 20 6"/></svg></span>' +
+        roleBadgeHTML(role) +
+        '<span>'+escapeHtml(role)+'</span>';
+      chip.addEventListener("click", () => {
+        const idx = selectedRoles.indexOf(role);
+        if (idx > -1) selectedRoles.splice(idx, 1); else selectedRoles.push(role);
+        onChange(selectedRoles);
+      });
+      wrap.appendChild(chip);
+    });
+    return wrap;
+  }
+
+  /* ============================================================
+     Storage (persistent artifact storage, with in-memory fallback)
+  ============================================================ */
+  const hasStorage = !!(window.storage && window.storage.get && window.storage.set);
+  let mem = {};
+
+  async function storeGet(key){
+    try {
+      if (!hasStorage) return mem[key] ?? null;
+      const res = await window.storage.get(key, false);
+      return res ? res.value : null;
+    } catch(e){ return mem[key] ?? null; }
+  }
+  async function storeSet(key, value){
+    mem[key] = value;
+    try {
+      if (!hasStorage) return true;
+      await window.storage.set(key, value, false);
+      return true;
+    } catch(e){ return false; }
+  }
+
+  function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+
+  function reveal(el){
+    if (!el) return;
+    el.classList.remove("fade-in");
+    void el.offsetWidth;
+    el.classList.add("fade-in");
+  }
+
+  function escapeHtml(str){
+    const d = document.createElement("div");
+    d.textContent = str == null ? "" : str;
+    return d.innerHTML;
+  }
+
+  /* ============================================================
+     State
+  ============================================================ */
+  let view = "builder";
+  let teams = [];               // [{id,name,players:[{name,rank,roles}],createdAt,updatedAt}]
+  let players = [];             // [{id,name,rank,roles}] shared player database
+  let builderPlayers = [];      // [{id,name,rank,roles}]
+  let editingTeamId = null;
+  let builderJustAddedIndex = null; // index of a freshly-added card, animated once then cleared
+
+  let compare = {
+    A: { mode: "new", teamId: null, name: "Team A", players: [] },
+    B: { mode: "new", teamId: null, name: "Team B", players: [] }
+  };
+
+  let balance = {
+    participants: [],   // [teamId]
+    matchups: [],        // [{a:teamId, b:teamId|null}]
+    locks: []             // parallel bool array to matchups
+  };
+
+  let balanceMode = "matchups"; // "matchups" | "teamgen"
+
+  function defaultRoleRules(){
+    const r = {};
+    ROLES.forEach(role => { r[role] = { min: 1, max: null }; });
+    return r;
+  }
+
+  let teamgen = {
+    participantIds: [],   // player ids selected from the database
+    teamSize: DEFAULT_TEAM_SIZE,
+    teams: [],             // [{id,name,playerIds:[],locked:false}]
+    unassigned: [],         // playerIds not currently on a team
+    roleRules: defaultRoleRules()  // { Vanguard: {min,max}, Duelist: {min,max}, Strategist: {min,max} }
+  };
+
+  function newPlayer(){ return { id: uid(), name: "", rank: RANKS[0], roles: [] }; }
+  function defaultBuilder(){
+    const arr = [];
+    for (let i=0;i<DEFAULT_CARDS;i++) arr.push(newPlayer());
+    return arr;
+  }
+
+  let saveDraftTimer = null;
+  function queueSaveDraft(){
+    clearTimeout(saveDraftTimer);
+    saveDraftTimer = setTimeout(async () => {
+      await storeSet("sgs_draft", JSON.stringify({ players: builderPlayers, editingTeamId }));
+    }, 300);
+  }
+  async function saveTeamsToStore(){ await storeSet("sgs_teams", JSON.stringify(teams)); }
+  async function savePlayersToStore(){ await storeSet("sgs_players", JSON.stringify(players)); }
+  async function saveCompareDraft(){ await storeSet("sgs_compare", JSON.stringify(compare)); }
+  async function saveBalanceDraft(){ await storeSet("sgs_balance", JSON.stringify(balance)); }
+  async function saveBalanceModeDraft(){ await storeSet("sgs_balance_mode", balanceMode); }
+  async function saveTeamgenDraft(){ await storeSet("sgs_teamgen", JSON.stringify(teamgen)); }
+
+  /* ============================================================
+     Generic UI helpers: custom select, modal, toast, context menu
+  ============================================================ */
+  function closeAllSelects(except){
+    document.querySelectorAll(".xsel.open").forEach(el => { if (el !== except) el.classList.remove("open"); });
+  }
+  document.addEventListener("click", () => closeAllSelects());
+
+  function createSelect(options, value, onChange, opts){
+    opts = opts || {};
+    const wrap = document.createElement("div");
+    wrap.className = "xsel";
+
+    const trigger = document.createElement("button");
+    trigger.type = "button";
+    trigger.className = "xsel-trigger";
+
+    const list = document.createElement("div");
+    list.className = "xsel-list";
+
+    function findOpt(v){ return options.find(o => o.value === v); }
+    function renderInner(o){
+      const icon = opts.iconFn ? opts.iconFn(o.value) : "";
+      return icon + '<span class="xsel-label">' + escapeHtml(o.label) + '</span>';
+    }
+
+    const current = findOpt(value);
+    trigger.innerHTML = current ? renderInner(current) : '<span class="xsel-label">' + (opts.placeholder || "Select...") + '</span>';
+    trigger.title = current ? current.label : (opts.placeholder || "Select...");
+
+    options.forEach(o => {
+      const item = document.createElement("div");
+      item.className = "xsel-opt" + (o.value === value ? " active" : "");
+      item.innerHTML = renderInner(o);
+      item.title = o.label;
+      item.addEventListener("click", (e) => {
+        e.stopPropagation();
+        trigger.innerHTML = renderInner(o);
+        trigger.title = o.label;
+        list.querySelectorAll(".xsel-opt").forEach(el => el.classList.remove("active"));
+        item.classList.add("active");
+        wrap.classList.remove("open");
+        onChange(o.value);
+      });
+      list.appendChild(item);
+    });
+
+    trigger.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const isOpen = wrap.classList.contains("open");
+      closeAllSelects(wrap);
+      wrap.classList.toggle("open", !isOpen);
+    });
+
+    wrap.appendChild(trigger);
+    wrap.appendChild(list);
+    return wrap;
+  }
+
+  function toast(msg){
+    const root = document.getElementById("toastRoot");
+    const t = document.createElement("div");
+    t.className = "toast";
+    t.textContent = msg;
+    root.appendChild(t);
+    requestAnimationFrame(() => t.classList.add("show"));
+    setTimeout(() => { t.classList.remove("show"); setTimeout(() => t.remove(), 250); }, 2000);
+  }
+
+  function closeModal(){ const o = document.getElementById("modalOverlay"); if (o) o.remove(); }
+  function showModal(title, bodyNode, actions){
+    closeModal();
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay";
+    overlay.id = "modalOverlay";
+    const modal = document.createElement("div");
+    modal.className = "modal";
+
+    const h = document.createElement("div");
+    h.className = "modal-title";
+    h.textContent = title;
+
+    const body = document.createElement("div");
+    body.className = "modal-body";
+    body.appendChild(bodyNode);
+
+    const footer = document.createElement("div");
+    footer.className = "modal-actions";
+    actions.forEach(a => {
+      const btn = document.createElement("button");
+      btn.className = "btn " + (a.variant || "btn-ghost");
+      btn.textContent = a.label;
+      btn.addEventListener("click", a.onClick);
+      footer.appendChild(btn);
+    });
+
+    modal.appendChild(h);
+    modal.appendChild(body);
+    modal.appendChild(footer);
+    overlay.appendChild(modal);
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) closeModal(); });
+    document.body.appendChild(overlay);
+  }
+
+  function closeCtxMenu(){ document.querySelectorAll(".ctx-menu").forEach(m => m.remove()); }
+  document.addEventListener("click", closeCtxMenu);
+  window.addEventListener("scroll", closeCtxMenu, true);
+
+  function showCtxMenu(x, y, items){
+    closeCtxMenu();
+    const menu = document.createElement("div");
+    menu.className = "ctx-menu";
+    menu.style.left = x + "px";
+    menu.style.top = y + "px";
+    items.forEach(it => {
+      if (it.divider){ const d = document.createElement("div"); d.className = "ctx-divider"; menu.appendChild(d); return; }
+      const el = document.createElement("div");
+      el.className = "ctx-item" + (it.danger ? " danger" : "");
+      el.textContent = it.label;
+      el.addEventListener("click", (e) => { e.stopPropagation(); closeCtxMenu(); it.action(); });
+      menu.appendChild(el);
+    });
+    document.body.appendChild(menu);
+    requestAnimationFrame(() => {
+      const r = menu.getBoundingClientRect();
+      if (r.right > window.innerWidth) menu.style.left = Math.max(8, window.innerWidth - r.width - 8) + "px";
+      if (r.bottom > window.innerHeight) menu.style.top = Math.max(8, window.innerHeight - r.height - 8) + "px";
+    });
+  }
+
+  /* ============================================================
+     Sidebar / nav
+  ============================================================ */
+  const rail = document.getElementById("rail");
+  document.getElementById("railToggle").addEventListener("click", () => rail.classList.toggle("expanded"));
+
+  document.querySelectorAll(".rail-item").forEach(item => {
+    item.addEventListener("click", () => {
+      if (item.dataset.view === view) return;
+      view = item.dataset.view;
+      renderNav();
+      renderView();
+    });
+  });
+
+  const SECTION_IDS = { builder: "view-builder", players: "view-players", teams: "view-teams", compare: "view-compare", balance: "view-balance" };
+
+  function renderNav(){
+    document.querySelectorAll(".rail-item").forEach(el => el.classList.toggle("active", el.dataset.view === view));
+    Object.keys(SECTION_IDS).forEach(k => {
+      const el = document.getElementById(SECTION_IDS[k]);
+      if (k === view) { el.style.display = ""; reveal(el); }
+      else { el.style.display = "none"; }
+    });
+  }
+
+  function renderView(){
+    if (view === "builder") renderBuilder();
+    if (view === "players") renderPlayers();
+    if (view === "teams") renderTeams();
+    if (view === "compare") renderCompare();
+    if (view === "balance") renderBalance();
+  }
+
+  /* ============================================================
+     BUILDER VIEW
+  ============================================================ */
+  const builderGrid = document.getElementById("builderGrid");
+  const addPlayerBtn = document.getElementById("addPlayerBtn");
+  const removePlayerBtn = document.getElementById("removePlayerBtn");
+  const saveTeamBtn = document.getElementById("saveTeamBtn");
+  const discardEditBtn = document.getElementById("discardEditBtn");
+
+  function builderTotals(){
+    const total = builderPlayers.reduce((s,p) => s + RANK_POINTS[p.rank], 0);
+    return { total, count: builderPlayers.length, avg: builderPlayers.length ? (total/builderPlayers.length) : 0 };
+  }
+
+  function playerDbSelectOptions(){
+    return [{ value: "", label: "— New player —" }].concat(
+      players.slice().sort((a,b) => a.name.localeCompare(b.name)).map(p => ({ value: p.id, label: p.name + " (" + p.rank + ")" }))
+    );
+  }
+
+  function renderBuilder(){
+    builderGrid.innerHTML = "";
+    builderPlayers.forEach((p, i) => {
+      const card = document.createElement("div");
+      card.className = "pcard";
+      if (i === builderJustAddedIndex) card.classList.add("fade-in");
+
+      const idx = document.createElement("div");
+      idx.className = "idx";
+      idx.textContent = "#" + (i+1);
+      card.appendChild(idx);
+
+      const loadLabel = document.createElement("div");
+      loadLabel.className = "field-label";
+      loadLabel.textContent = "Load from players database";
+      card.appendChild(loadLabel);
+
+      const loadSelect = createSelect(playerDbSelectOptions(), "", (val) => {
+        if (!val) return;
+        const src = players.find(pl => pl.id === val);
+        if (!src) return;
+        p.name = src.name;
+        p.rank = src.rank;
+        p.roles = src.roles ? src.roles.slice() : [];
+        renderBuilder();
+        queueSaveDraft();
+        toast("Loaded " + src.name);
+      }, { placeholder: "— New player —" });
+      card.appendChild(loadSelect);
+
+      const nameLabel = document.createElement("div");
+      nameLabel.className = "field-label field-gap";
+      nameLabel.textContent = "Player name";
+      card.appendChild(nameLabel);
+
+      const nameInput = document.createElement("input");
+      nameInput.type = "text";
+      nameInput.placeholder = "Enter name...";
+      nameInput.value = p.name;
+      nameInput.addEventListener("input", (e) => { p.name = e.target.value; queueSaveDraft(); });
+      card.appendChild(nameInput);
+
+      const rankLabel = document.createElement("div");
+      rankLabel.className = "field-label field-gap";
+      rankLabel.textContent = "Rank";
+      card.appendChild(rankLabel);
+
+      const rankSelect = createSelect(RANK_OPTIONS, p.rank, (val) => {
+        p.rank = val;
+        ptsVal.textContent = RANK_POINTS[val];
+        updateBuilderTotals();
+        queueSaveDraft();
+      }, { iconFn: rankBadgeHTML });
+      card.appendChild(rankSelect);
+
+      const roleLabel = document.createElement("div");
+      roleLabel.className = "field-label field-gap";
+      roleLabel.textContent = "Roles";
+      card.appendChild(roleLabel);
+
+      if (!p.roles) p.roles = [];
+      const roleChips = createRoleChips(p.roles, () => { queueSaveDraft(); renderBuilder(); });
+      card.appendChild(roleChips);
+
+      const pointsRow = document.createElement("div");
+      pointsRow.className = "pcard-points";
+      const pl = document.createElement("span"); pl.className = "pl"; pl.textContent = "Points";
+      const ptsVal = document.createElement("span"); ptsVal.className = "pv"; ptsVal.textContent = RANK_POINTS[p.rank];
+      pointsRow.appendChild(pl); pointsRow.appendChild(ptsVal);
+      card.appendChild(pointsRow);
+
+      builderGrid.appendChild(card);
+    });
+    builderJustAddedIndex = null;
+
+    addPlayerBtn.disabled = builderPlayers.length >= MAX_CARDS;
+    removePlayerBtn.disabled = builderPlayers.length <= MIN_CARDS;
+    discardEditBtn.style.display = editingTeamId ? "inline-flex" : "none";
+    saveTeamBtn.textContent = editingTeamId ? "Update team" : "Save as team";
+    updateBuilderTotals();
+  }
+
+  function updateBuilderTotals(){
+    const t = builderTotals();
+    document.getElementById("totalPoints").textContent = t.total;
+    document.getElementById("playerCount").textContent = t.count;
+    document.getElementById("avgPoints").textContent = t.avg.toFixed(1);
+  }
+
+  addPlayerBtn.addEventListener("click", () => {
+    if (builderPlayers.length >= MAX_CARDS) return;
+    builderPlayers.push(newPlayer());
+    builderJustAddedIndex = builderPlayers.length - 1;
+    renderBuilder();
+    queueSaveDraft();
+  });
+  removePlayerBtn.addEventListener("click", () => {
+    if (builderPlayers.length <= MIN_CARDS) return;
+    builderPlayers.pop();
+    renderBuilder();
+    queueSaveDraft();
+  });
+  discardEditBtn.addEventListener("click", () => {
+    editingTeamId = null;
+    builderPlayers = defaultBuilder();
+    renderBuilder();
+    queueSaveDraft();
+    toast("Edit cancelled");
+  });
+
+  saveTeamBtn.addEventListener("click", () => {
+    const body = document.createElement("div");
+    const label = document.createElement("div");
+    label.className = "field-label";
+    label.textContent = "Team name";
+    const input = document.createElement("input");
+    input.type = "text";
+    input.style.marginTop = "0";
+    input.value = editingTeamId ? (teams.find(t=>t.id===editingTeamId)?.name || "") : "";
+    input.placeholder = "e.g. Squad One";
+    body.appendChild(label);
+    body.appendChild(input);
+
+    showModal(editingTeamId ? "Update team" : "Save as team", body, [
+      { label: "Cancel", variant: "btn-ghost", onClick: closeModal },
+      { label: editingTeamId ? "Update" : "Save", variant: "btn-primary", onClick: async () => {
+        const name = input.value.trim() || "Untitled team";
+        const playersCopy = builderPlayers.map(p => ({ name: p.name.trim() || "Unnamed player", rank: p.rank, roles: p.roles ? p.roles.slice() : [] }));
+        if (editingTeamId) {
+          const t = teams.find(t => t.id === editingTeamId);
+          if (t) { t.name = name; t.players = playersCopy; t.updatedAt = Date.now(); }
+          toast("Team updated");
+        } else {
+          teams.push({ id: uid(), name, players: playersCopy, createdAt: Date.now(), updatedAt: Date.now() });
+          toast("Team saved");
+        }
+        await saveTeamsToStore();
+        closeModal();
+        editingTeamId = null;
+        builderPlayers = defaultBuilder();
+        renderBuilder();
+        queueSaveDraft();
+      }}
+    ]);
+    setTimeout(() => input.focus(), 30);
+  });
+
+  /* ============================================================
+     PLAYERS VIEW (shared player database)
+  ============================================================ */
+  const playersContainer = document.getElementById("playersContainer");
+  const addPlayerDbBtn = document.getElementById("addPlayerDbBtn");
+
+  function renderPlayers(){
+    playersContainer.innerHTML = "";
+    if (!players.length){
+      const empty = document.createElement("div");
+      empty.className = "empty-state";
+      empty.innerHTML = "<p>No players saved yet. Add players here to reuse them in the builder and the team generator.</p>";
+      const btn = document.createElement("button");
+      btn.className = "btn btn-primary";
+      btn.textContent = "Add player";
+      btn.addEventListener("click", () => openPlayerModal(null));
+      empty.appendChild(btn);
+      playersContainer.appendChild(empty);
+      return;
+    }
+
+    const list = document.createElement("div");
+    list.className = "player-list";
+
+    players.slice().sort((a,b) => a.name.localeCompare(b.name)).forEach(pl => {
+      const row = document.createElement("div");
+      row.className = "player-row";
+      row.innerHTML =
+        '<span class="player-row-name">'+escapeHtml(pl.name)+'</span>' +
+        '<span class="player-row-rank">'+rankBadgeHTML(pl.rank)+' '+escapeHtml(pl.rank)+'</span>' +
+        roleBadgesHTML(pl.roles) +
+        '<span class="player-row-pts">'+RANK_POINTS[pl.rank]+'</span>';
+
+      const kebab = document.createElement("button");
+      kebab.className = "kebab";
+      kebab.innerHTML = '<svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg>';
+      kebab.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const r = kebab.getBoundingClientRect();
+        showCtxMenu(r.left, r.bottom + 6, [
+          { label: "Edit player", action: () => openPlayerModal(pl) },
+          { divider: true },
+          { label: "Delete player", danger: true, action: () => confirmDeletePlayer(pl) }
+        ]);
+      });
+      row.appendChild(kebab);
+      row.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        showCtxMenu(e.clientX, e.clientY, [
+          { label: "Edit player", action: () => openPlayerModal(pl) },
+          { divider: true },
+          { label: "Delete player", danger: true, action: () => confirmDeletePlayer(pl) }
+        ]);
+      });
+
+      list.appendChild(row);
+    });
+
+    playersContainer.appendChild(list);
+  }
+
+  function openPlayerModal(existing){
+    const body = document.createElement("div");
+
+    const nameLabel = document.createElement("div");
+    nameLabel.className = "field-label";
+    nameLabel.textContent = "Player name";
+    const nameInput = document.createElement("input");
+    nameInput.type = "text";
+    nameInput.style.marginTop = "0";
+    nameInput.value = existing ? existing.name : "";
+    nameInput.placeholder = "Enter name...";
+    body.appendChild(nameLabel);
+    body.appendChild(nameInput);
+
+    const rankLabel = document.createElement("div");
+    rankLabel.className = "field-label field-gap";
+    rankLabel.textContent = "Rank";
+    body.appendChild(rankLabel);
+
+    let currentRank = existing ? existing.rank : RANKS[0];
+
+    const preview = document.createElement("div");
+    preview.className = "modal-rank-preview";
+    function renderPreview(){
+      preview.innerHTML = rankBadgeHTML(currentRank) + '<span>'+escapeHtml(currentRank)+'</span><span class="mp-pts-badge">'+RANK_POINTS[currentRank]+' pts</span>';
+    }
+    renderPreview();
+
+    const rankSelect = createSelect(RANK_OPTIONS, currentRank, (val) => {
+      currentRank = val;
+      renderPreview();
+    }, { iconFn: rankBadgeHTML });
+    body.appendChild(rankSelect);
+    body.appendChild(preview);
+
+    const roleLabel = document.createElement("div");
+    roleLabel.className = "field-label field-gap";
+    roleLabel.textContent = "Roles (select all that apply)";
+    body.appendChild(roleLabel);
+
+    let currentRoles = existing && existing.roles ? existing.roles.slice() : [];
+    const roleChipsContainer = document.createElement("div");
+    body.appendChild(roleChipsContainer);
+    function renderRoleChips(){
+      roleChipsContainer.innerHTML = "";
+      roleChipsContainer.appendChild(createRoleChips(currentRoles, () => renderRoleChips()));
+    }
+    renderRoleChips();
+
+    showModal(existing ? "Edit player" : "Add player", body, [
+      { label: "Cancel", variant: "btn-ghost", onClick: closeModal },
+      { label: existing ? "Save" : "Add", variant: "btn-primary", onClick: async () => {
+        const name = nameInput.value.trim() || "Unnamed player";
+        if (!currentRoles.length){ toast("Select at least one role"); return; }
+        if (existing){
+          existing.name = name;
+          existing.rank = currentRank;
+          existing.roles = currentRoles;
+          toast("Player updated");
+        } else {
+          players.push({ id: uid(), name, rank: currentRank, roles: currentRoles });
+          toast("Player added");
+        }
+        await savePlayersToStore();
+        closeModal();
+        renderPlayers();
+        reveal(playersContainer);
+      }}
+    ]);
+    setTimeout(() => nameInput.focus(), 30);
+  }
+
+  function confirmDeletePlayer(pl){
+    const body = document.createElement("div");
+    body.textContent = 'Remove "' + pl.name + '" from the players database? This can\'t be undone.';
+    showModal("Delete player", body, [
+      { label: "Cancel", variant: "btn-ghost", onClick: closeModal },
+      { label: "Delete", variant: "btn-danger", onClick: async () => {
+        players = players.filter(p => p.id !== pl.id);
+        await savePlayersToStore();
+        closeModal();
+        renderPlayers();
+        reveal(playersContainer);
+        toast("Player deleted");
+      }}
+    ]);
+  }
+
+  addPlayerDbBtn.addEventListener("click", () => openPlayerModal(null));
+
+  /* ============================================================
+     TEAMS VIEW
+  ============================================================ */
+  const teamsContainer = document.getElementById("teamsContainer");
+
+  function teamTotals(team){
+    const total = team.players.reduce((s,p) => s + RANK_POINTS[p.rank], 0);
+    const avg = team.players.length ? total / team.players.length : 0;
+    return { total, avg, count: team.players.length };
+  }
+
+  function renderTeams(){
+    teamsContainer.innerHTML = "";
+    if (!teams.length){
+      const empty = document.createElement("div");
+      empty.className = "empty-state";
+      empty.innerHTML = "<p>No saved teams yet. Build a roster and save it to see it here.</p>";
+      const btn = document.createElement("button");
+      btn.className = "btn btn-primary";
+      btn.textContent = "Go to builder";
+      btn.addEventListener("click", () => { view = "builder"; renderNav(); renderView(); });
+      empty.appendChild(btn);
+      teamsContainer.appendChild(empty);
+      return;
+    }
+
+    const list = document.createElement("div");
+    list.className = "team-list";
+
+    teams.slice().sort((a,b) => b.updatedAt - a.updatedAt).forEach(team => {
+      const t = teamTotals(team);
+      const row = document.createElement("div");
+      row.className = "team-row";
+
+      const top = document.createElement("div");
+      top.className = "team-row-top";
+
+      const nameWrap = document.createElement("div");
+      const nm = document.createElement("div"); nm.className = "team-row-name"; nm.textContent = team.name;
+      const meta = document.createElement("div"); meta.className = "team-row-meta"; meta.textContent = t.count + " player" + (t.count===1?"":"s");
+      nameWrap.appendChild(nm); nameWrap.appendChild(meta);
+
+      const stats = document.createElement("div");
+      stats.className = "team-row-stats";
+      stats.innerHTML =
+        '<div class="stat"><div class="n">'+t.total+'</div><div class="l">points</div></div>' +
+        '<div class="stat"><div class="n">'+t.avg.toFixed(1)+'</div><div class="l">avg</div></div>';
+
+      const kebab = document.createElement("button");
+      kebab.className = "kebab";
+      kebab.innerHTML = '<svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg>';
+      kebab.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const r = kebab.getBoundingClientRect();
+        showCtxMenu(r.left, r.bottom + 6, menuItemsForTeam(team));
+      });
+      stats.appendChild(kebab);
+
+      top.appendChild(nameWrap);
+      top.appendChild(stats);
+
+      const detail = document.createElement("div");
+      detail.className = "team-row-detail";
+      const mini = document.createElement("div");
+      mini.className = "mini-player-list";
+      team.players.forEach(p => {
+        const pr = document.createElement("div");
+        pr.className = "mini-player-row";
+        pr.innerHTML = '<span><b>'+escapeHtml(p.name)+'</b> — '+escapeHtml(p.rank)+' '+roleBadgesHTML(p.roles)+'</span><span class="mp-pts">'+RANK_POINTS[p.rank]+' pts</span>';
+        mini.appendChild(pr);
+      });
+      detail.appendChild(mini);
+
+      row.appendChild(top);
+      row.appendChild(detail);
+
+      row.addEventListener("click", () => row.classList.toggle("expanded"));
+      row.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        showCtxMenu(e.clientX, e.clientY, menuItemsForTeam(team));
+      });
+
+      list.appendChild(row);
+    });
+
+    teamsContainer.appendChild(list);
+  }
+
+  function menuItemsForTeam(team){
+    return [
+      { label: "Edit team", action: () => {
+        editingTeamId = team.id;
+        builderPlayers = team.players.map(p => ({ id: uid(), name: p.name, rank: p.rank, roles: p.roles ? p.roles.slice() : [] }));
+        view = "builder"; renderNav(); renderView(); queueSaveDraft();
+        toast("Editing " + team.name);
+      }},
+      { label: "Use as Team A in Compare", action: () => {
+        compare.A = { mode: "existing", teamId: team.id, name: team.name, players: team.players.map(p=>({...p})) };
+        view = "compare"; renderNav(); renderView(); saveCompareDraft();
+      }},
+      { label: "Use as Team B in Compare", action: () => {
+        compare.B = { mode: "existing", teamId: team.id, name: team.name, players: team.players.map(p=>({...p})) };
+        view = "compare"; renderNav(); renderView(); saveCompareDraft();
+      }},
+      { divider: true },
+      { label: "Delete team", danger: true, action: () => confirmDeleteTeam(team) }
+    ];
+  }
+
+  function confirmDeleteTeam(team){
+    const body = document.createElement("div");
+    body.textContent = 'Delete "' + team.name + '"? This can\'t be undone.';
+    showModal("Delete team", body, [
+      { label: "Cancel", variant: "btn-ghost", onClick: closeModal },
+      { label: "Delete", variant: "btn-danger", onClick: async () => {
+        teams = teams.filter(t => t.id !== team.id);
+        await saveTeamsToStore();
+        closeModal();
+        renderTeams();
+        reveal(teamsContainer);
+        toast("Team deleted");
+      }}
+    ]);
+  }
+
+  /* ============================================================
+     COMPARE VIEW
+  ============================================================ */
+  const compareGrid = document.getElementById("compareGrid");
+  const compareSummary = document.getElementById("compareSummary");
+
+  function sideTotals(side){
+    const total = side.players.reduce((s,p) => s + RANK_POINTS[p.rank], 0);
+    const avg = side.players.length ? total/side.players.length : 0;
+    return { total, avg, count: side.players.length };
+  }
+
+  function teamSelectOptions(){ return teams.map(t => ({ value: t.id, label: t.name })); }
+
+  function buildCompareColumn(sideKey){
+    const side = compare[sideKey];
+    const col = document.createElement("div");
+    col.className = "compare-col";
+
+    const head = document.createElement("div");
+    head.className = "compare-col-head";
+    const h3 = document.createElement("h3");
+    h3.textContent = sideKey === "A" ? "Team A" : "Team B";
+    head.appendChild(h3);
+    col.appendChild(head);
+
+    const switcher = document.createElement("div");
+    switcher.className = "mode-switch";
+    const newBtn = document.createElement("button");
+    newBtn.textContent = "Build new";
+    newBtn.className = side.mode === "new" ? "active" : "";
+    const savedBtn = document.createElement("button");
+    savedBtn.textContent = "Load saved";
+    savedBtn.className = side.mode === "existing" ? "active" : "";
+    newBtn.addEventListener("click", () => {
+      if (side.mode === "new") return;
+      compare[sideKey] = { mode: "new", teamId: null, name: "Team " + sideKey, players: side.players.length ? side.players : defaultBuilder().map(p=>({name:p.name,rank:p.rank})) };
+      saveCompareDraft();
+      renderCompare();
+      reveal(compareGrid);
+    });
+    savedBtn.addEventListener("click", () => {
+      if (!teams.length){ toast("No saved teams yet"); return; }
+      if (side.mode === "existing") return;
+      const t = teams[0];
+      compare[sideKey] = { mode: "existing", teamId: t.id, name: t.name, players: t.players.map(p=>({...p})) };
+      saveCompareDraft();
+      renderCompare();
+      reveal(compareGrid);
+    });
+    switcher.appendChild(newBtn);
+    switcher.appendChild(savedBtn);
+    col.appendChild(switcher);
+
+    if (side.mode === "existing"){
+      if (!teams.length){
+        const empty = document.createElement("div");
+        empty.className = "empty-state";
+        empty.style.padding = "26px 14px";
+        empty.innerHTML = "<p>No saved teams yet.</p>";
+        col.appendChild(empty);
+        return col;
+      }
+      const sel = createSelect(teamSelectOptions(), side.teamId, (val) => {
+        const t = teams.find(t => t.id === val);
+        compare[sideKey] = { mode: "existing", teamId: t.id, name: t.name, players: t.players.map(p=>({...p})) };
+        saveCompareDraft();
+        renderCompare();
+      });
+      col.appendChild(sel);
+
+      const list = document.createElement("div");
+      list.style.marginTop = "12px";
+      side.players.forEach(p => {
+        const row = document.createElement("div");
+        row.className = "mini-player-row";
+        row.style.padding = "6px 2px";
+        row.innerHTML = '<span><b>'+escapeHtml(p.name)+'</b> — '+escapeHtml(p.rank)+'</span><span class="mp-pts">'+RANK_POINTS[p.rank]+' pts</span>';
+        list.appendChild(row);
+      });
+      col.appendChild(list);
+    } else {
+      const nameLabel = document.createElement("div");
+      nameLabel.className = "field-label";
+      nameLabel.textContent = "Team name";
+      col.appendChild(nameLabel);
+      const nameInput = document.createElement("input");
+      nameInput.type = "text";
+      nameInput.value = side.name;
+      nameInput.style.marginBottom = "14px";
+      nameInput.addEventListener("input", (e) => { side.name = e.target.value; saveCompareDraft(); updateCompareSummary(); });
+      col.appendChild(nameInput);
+
+      if (!side.players.length) side.players = defaultBuilder().map(p => ({ name: p.name, rank: p.rank }));
+
+      side.players.forEach((p, i) => {
+        const mini = document.createElement("div");
+        mini.className = "compare-mini-card";
+        const rowEl = document.createElement("div");
+        rowEl.className = "compare-mini-row";
+
+        const nInput = document.createElement("input");
+        nInput.type = "text";
+        nInput.placeholder = "Name";
+        nInput.value = p.name;
+        nInput.addEventListener("input", (e) => { p.name = e.target.value; saveCompareDraft(); });
+
+        const rSel = createSelect(RANK_OPTIONS, p.rank, (val) => {
+          p.rank = val;
+          saveCompareDraft();
+          updateCompareSummary();
+        }, { iconFn: rankBadgeHTML });
+
+        const rm = document.createElement("button");
+        rm.className = "compare-mini-remove";
+        rm.textContent = "×";
+        rm.title = "Remove player";
+        rm.style.display = side.players.length <= MIN_CARDS ? "none" : "";
+        rm.addEventListener("click", () => {
+          side.players.splice(i, 1);
+          saveCompareDraft();
+          renderCompare();
+        });
+
+        rowEl.appendChild(nInput);
+        rowEl.appendChild(rSel);
+        rowEl.appendChild(rm);
+        mini.appendChild(rowEl);
+        col.appendChild(mini);
+      });
+
+      const addRow = document.createElement("button");
+      addRow.className = "btn";
+      addRow.style.width = "100%";
+      addRow.style.justifyContent = "center";
+      addRow.textContent = "Add player";
+      addRow.disabled = side.players.length >= MAX_CARDS;
+      addRow.addEventListener("click", () => {
+        if (side.players.length >= MAX_CARDS) return;
+        side.players.push({ name: "", rank: RANKS[0] });
+        saveCompareDraft();
+        renderCompare();
+      });
+      col.appendChild(addRow);
+    }
+
+    return col;
+  }
+
+  function renderCompare(){
+    compareGrid.innerHTML = "";
+    compareGrid.appendChild(buildCompareColumn("A"));
+    const vs = document.createElement("div");
+    vs.className = "compare-vs";
+    vs.innerHTML = '<div class="vs-badge">VS</div>';
+    compareGrid.appendChild(vs);
+    compareGrid.appendChild(buildCompareColumn("B"));
+    updateCompareSummary();
+  }
+
+  function updateCompareSummary(){
+    const a = sideTotals(compare.A);
+    const b = sideTotals(compare.B);
+    const leadA = a.total > b.total;
+    const leadB = b.total > a.total;
+    const diff = Math.abs(a.total - b.total);
+
+    compareSummary.innerHTML = "";
+    const sideA = document.createElement("div");
+    sideA.className = "cs-side" + (leadA ? " leading" : "");
+    sideA.innerHTML = '<div class="cs-name">'+escapeHtml(compare.A.name || "Team A")+'</div><div class="cs-pts">'+a.total+'</div>';
+
+    const diffEl = document.createElement("div");
+    diffEl.className = "cs-diff";
+    diffEl.innerHTML = diff === 0 ? "Perfectly balanced" : "Difference<br><b>" + diff + " pts</b>";
+
+    const sideB = document.createElement("div");
+    sideB.className = "cs-side" + (leadB ? " leading" : "");
+    sideB.innerHTML = '<div class="cs-name">'+escapeHtml(compare.B.name || "Team B")+'</div><div class="cs-pts">'+b.total+'</div>';
+
+    compareSummary.appendChild(sideA);
+    compareSummary.appendChild(diffEl);
+    compareSummary.appendChild(sideB);
+  }
+
+  /* ============================================================
+     BALANCE VIEW — mode switch
+  ============================================================ */
+  const balanceMatchupsMode = document.getElementById("balanceMatchupsMode");
+  const balanceTeamgenMode = document.getElementById("balanceTeamgenMode");
+  const balanceModeMatchupsBtn = document.getElementById("balanceModeMatchupsBtn");
+  const balanceModeTeamgenBtn = document.getElementById("balanceModeTeamgenBtn");
+  const balanceHeadText = document.getElementById("balanceHeadText");
+
+  const BALANCE_HEAD_TEXT = {
+    matchups: "Pick which saved teams are playing, then auto-generate matchups sorted for the closest possible point totals. Lock a matchup to keep it fixed, or shuffle the rest.",
+    teamgen: "Pick players from the database, choose a team size and role requirements, and generate evenly balanced teams by rank and role. Lock a team to keep its roster fixed, shuffle the rest, or move players between teams by hand."
+  };
+
+  function setBalanceMode(mode){
+    balanceMode = mode;
+    balanceModeMatchupsBtn.classList.toggle("active", mode === "matchups");
+    balanceModeTeamgenBtn.classList.toggle("active", mode === "teamgen");
+    balanceMatchupsMode.style.display = mode === "matchups" ? "" : "none";
+    balanceTeamgenMode.style.display = mode === "teamgen" ? "" : "none";
+    balanceHeadText.textContent = BALANCE_HEAD_TEXT[mode];
+    saveBalanceModeDraft();
+  }
+  balanceModeMatchupsBtn.addEventListener("click", () => { if (balanceMode !== "matchups"){ setBalanceMode("matchups"); renderBalanceMatchups(); reveal(balanceMatchupsMode); } });
+  balanceModeTeamgenBtn.addEventListener("click", () => { if (balanceMode !== "teamgen"){ setBalanceMode("teamgen"); renderBalanceTeamgen(); reveal(balanceTeamgenMode); } });
+
+  function renderBalance(){
+    setBalanceMode(balanceMode);
+    renderBalanceMatchups();
+    renderBalanceTeamgen();
+  }
+
+  /* ---------- Matchups sub-mode (existing saved-team pairing) ---------- */
+
+  function sanitizeBalance(){
+    const validIds = new Set(teams.map(t => t.id));
+    balance.participants = balance.participants.filter(id => validIds.has(id));
+    const keepIdx = [];
+    balance.matchups = balance.matchups.filter((m, i) => {
+      const ok = validIds.has(m.a) && (m.b === null || validIds.has(m.b));
+      if (ok) keepIdx.push(i);
+      return ok;
+    });
+    balance.locks = keepIdx.map(i => !!balance.locks[i]);
+  }
+
+  // Best single cross-team player swap to minimize the point gap.
+  function bestSwap(teamA, teamB){
+    const totalA = teamA.players.reduce((s,p)=>s+RANK_POINTS[p.rank],0);
+    const totalB = teamB.players.reduce((s,p)=>s+RANK_POINTS[p.rank],0);
+    let best = null;
+    teamA.players.forEach(p => {
+      teamB.players.forEach(q => {
+        const newA = totalA - RANK_POINTS[p.rank] + RANK_POINTS[q.rank];
+        const newB = totalB - RANK_POINTS[q.rank] + RANK_POINTS[p.rank];
+        const newDiff = Math.abs(newA - newB);
+        if (!best || newDiff < best.diff) best = { p, q, diff: newDiff };
+      });
+    });
+    return best;
+  }
+
+  // Suggests benching the player most responsible for the gap on the heavier
+  // team, and gives a rank RANGE for a replacement that would balance things out
+  // (useful when there's no good same-roster swap available).
+  function suggestReplacementRange(heavyTeam, lightTeam){
+    if (!heavyTeam.players.length) return null;
+    const heavyTotal = heavyTeam.players.reduce((s,p)=>s+RANK_POINTS[p.rank],0);
+    const lightTotal = lightTeam.players.reduce((s,p)=>s+RANK_POINTS[p.rank],0);
+    const target = heavyTeam.players.reduce((max,p) => RANK_POINTS[p.rank] > RANK_POINTS[max.rank] ? p : max, heavyTeam.players[0]);
+    const idealPts = lightTotal - heavyTotal + RANK_POINTS[target.rank];
+    const idealClamped = Math.max(1, Math.min(RANKS.length, Math.round(idealPts)));
+    const lowPts = Math.max(1, idealClamped - 1);
+    const highPts = Math.min(RANKS.length, idealClamped + 1);
+    return { player: target, lowRank: RANKS[lowPts-1], highRank: RANKS[highPts-1] };
+  }
+
+  // Builds ONE actionable, verified-beneficial suggestion for closing a
+  // points gap between two rosters (used by both saved-team matchups and
+  // generated teamgen teams). Tries a like-for-like swap first; only falls
+  // back to a "bench and replace" suggestion when no swap actually helps.
+  // Returns null when nothing found would improve the gap, so callers can
+  // skip the tooltip entirely rather than show something that back­fires.
+  // Only ever returns a single suggestion at a time — showing a swap and a
+  // bench idea together invites applying both, which overcorrects and can
+  // leave the teams more unbalanced than before.
+  function buildBalanceSuggestion(teamAPlayers, teamAName, teamBPlayers, teamBName){
+    const totalA = teamAPlayers.reduce((s,p)=>s+RANK_POINTS[p.rank],0);
+    const totalB = teamBPlayers.reduce((s,p)=>s+RANK_POINTS[p.rank],0);
+    const diff = Math.abs(totalA - totalB);
+    if (diff === 0 || (!teamAPlayers.length && !teamBPlayers.length)) return null;
+
+    const swap = bestSwap({ players: teamAPlayers }, { players: teamBPlayers });
+    if (swap && swap.diff < diff){
+      return 'Try swapping <b>'+escapeHtml(swap.p.name)+'</b> ('+escapeHtml(swap.p.rank)+') with <b>'+escapeHtml(swap.q.name)+'</b> ('+escapeHtml(swap.q.rank)+') — would bring the gap down to '+swap.diff+' pts.';
+    }
+
+    const aHeavier = totalA >= totalB;
+    const heavy = { players: aHeavier ? teamAPlayers : teamBPlayers, name: aHeavier ? teamAName : teamBName };
+    const light = { players: aHeavier ? teamBPlayers : teamAPlayers, name: aHeavier ? teamBName : teamAName };
+    const range = suggestReplacementRange(heavy, light);
+    if (range && range.player){
+      const rangeText = range.lowRank === range.highRank
+        ? 'ranked around <b>'+escapeHtml(range.lowRank)+'</b>'
+        : 'ranked between <b>'+escapeHtml(range.lowRank)+'</b> and <b>'+escapeHtml(range.highRank)+'</b>';
+      return 'Bench <b>'+escapeHtml(range.player.name)+'</b> ('+escapeHtml(range.player.rank)+') from <b>'+escapeHtml(heavy.name)+'</b> for someone ' + rangeText + '.';
+    }
+
+    return null;
+  }
+
+  function generateBalancedMatchups(){
+    const list = balance.participants
+      .map(id => ({ id, pts: teamTotals(teams.find(t=>t.id===id)).total }))
+      .sort((a,b) => a.pts - b.pts);
+    const pairs = [];
+    for (let i=0;i<list.length;i+=2){
+      if (i+1 < list.length) pairs.push({ a: list[i].id, b: list[i+1].id });
+      else pairs.push({ a: list[i].id, b: null });
+    }
+    balance.matchups = pairs;
+    balance.locks = pairs.map(() => false);
+    saveBalanceDraft();
+    renderBalanceMatchups();
+    reveal(balanceMatchupsMode);
+    toast("Matchups generated");
+  }
+
+  function shuffleMatchups(){
+    const lockedPairs = [];
+    const freeIds = [];
+    balance.matchups.forEach((m, i) => {
+      if (balance.locks[i]) lockedPairs.push(m);
+      else { freeIds.push(m.a); if (m.b) freeIds.push(m.b); }
+    });
+    for (let i = freeIds.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i+1));
+      [freeIds[i], freeIds[j]] = [freeIds[j], freeIds[i]];
+    }
+    const freshPairs = [];
+    for (let i=0;i<freeIds.length;i+=2){
+      freshPairs.push({ a: freeIds[i], b: freeIds[i+1] !== undefined ? freeIds[i+1] : null });
+    }
+    balance.matchups = [...lockedPairs, ...freshPairs];
+    balance.locks = balance.matchups.map((m, i) => i < lockedPairs.length);
+    saveBalanceDraft();
+    renderBalanceMatchups();
+    reveal(balanceMatchupsMode);
+    toast("Shuffled");
+  }
+
+  function renderBalanceMatchups(){
+    sanitizeBalance();
+    balanceMatchupsMode.innerHTML = "";
+
+    if (!teams.length){
+      const empty = document.createElement("div");
+      empty.className = "empty-state";
+      empty.innerHTML = "<p>No saved teams yet. Save at least two teams to set up matchups.</p>";
+      const btn = document.createElement("button");
+      btn.className = "btn btn-primary";
+      btn.textContent = "Go to builder";
+      btn.addEventListener("click", () => { view = "builder"; renderNav(); renderView(); });
+      empty.appendChild(btn);
+      balanceMatchupsMode.appendChild(empty);
+      return;
+    }
+
+    // Participant picker
+    const chipList = document.createElement("div");
+    chipList.className = "chip-list";
+    teams.slice().sort((a,b) => a.name.localeCompare(b.name)).forEach(team => {
+      const selected = balance.participants.includes(team.id);
+      const chip = document.createElement("div");
+      chip.className = "chip" + (selected ? " selected" : "");
+      chip.innerHTML =
+        '<span class="chip-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 12 9 17 20 6"/></svg></span>' +
+        '<span>'+escapeHtml(team.name)+'</span>' +
+        '<span class="chip-pts">'+teamTotals(team).total+' pts</span>';
+      chip.addEventListener("click", () => {
+        if (selected) balance.participants = balance.participants.filter(id => id !== team.id);
+        else balance.participants.push(team.id);
+        saveBalanceDraft();
+        renderBalanceMatchups();
+      });
+      chipList.appendChild(chip);
+    });
+    balanceMatchupsMode.appendChild(chipList);
+
+    // Toolbar
+    const toolbar = document.createElement("div");
+    toolbar.className = "toolbar";
+    const genBtn = document.createElement("button");
+    genBtn.className = "btn btn-primary";
+    genBtn.textContent = "Generate balanced matchups";
+    genBtn.disabled = balance.participants.length < 2;
+    genBtn.addEventListener("click", generateBalancedMatchups);
+
+    const shuffleBtn = document.createElement("button");
+    shuffleBtn.className = "btn";
+    shuffleBtn.textContent = "Shuffle";
+    shuffleBtn.disabled = balance.matchups.length === 0;
+    shuffleBtn.title = "Randomly re-pair teams. Lock a matchup first to keep it from being shuffled.";
+    shuffleBtn.addEventListener("click", shuffleMatchups);
+
+    toolbar.appendChild(genBtn);
+    toolbar.appendChild(shuffleBtn);
+    balanceMatchupsMode.appendChild(toolbar);
+
+    if (balance.participants.length < 2){
+      const hint = document.createElement("div");
+      hint.className = "empty-state";
+      hint.innerHTML = "<p>Select at least two teams above to generate matchups.</p>";
+      balanceMatchupsMode.appendChild(hint);
+      return;
+    }
+
+    if (balance.participants.length % 2 !== 0){
+      const banner = document.createElement("div");
+      banner.className = "balance-banner";
+      banner.textContent = balance.participants.length + " teams selected — that's an odd number, so one team will sit out each round.";
+      balanceMatchupsMode.appendChild(banner);
+    }
+
+    if (!balance.matchups.length){
+      const hint = document.createElement("div");
+      hint.className = "empty-state";
+      hint.innerHTML = "<p>Click \"Generate balanced matchups\" to pair these teams up.</p>";
+      balanceMatchupsMode.appendChild(hint);
+      return;
+    }
+
+    balance.matchups.forEach((m, i) => {
+      const teamA = teams.find(t => t.id === m.a);
+      const teamB = m.b ? teams.find(t => t.id === m.b) : null;
+      if (!teamA) return;
+
+      if (!teamB){
+        const bye = document.createElement("div");
+        bye.className = "bye-card";
+        bye.innerHTML = '<b>' + escapeHtml(teamA.name) + '</b> has no opponent this round — sitting out.';
+        balanceMatchupsMode.appendChild(bye);
+        return;
+      }
+
+      const ta = teamTotals(teamA), tb = teamTotals(teamB);
+      const diff = Math.abs(ta.total - tb.total);
+      const avg = (ta.total + tb.total) / 2;
+      const unbalanced = diff > Math.max(6, avg * 0.2);
+
+      const card = document.createElement("div");
+      card.className = "matchup-card" + (unbalanced ? " unbalanced" : "");
+
+      const top = document.createElement("div");
+      top.className = "matchup-top";
+
+      const teamsWrap = document.createElement("div");
+      teamsWrap.className = "matchup-teams";
+      teamsWrap.innerHTML =
+        '<div class="matchup-team"><div class="mt-name">'+escapeHtml(teamA.name)+'</div><div class="mt-pts">'+ta.total+'</div></div>' +
+        '<div class="matchup-vs">VS</div>' +
+        '<div class="matchup-team"><div class="mt-name">'+escapeHtml(teamB.name)+'</div><div class="mt-pts">'+tb.total+'</div></div>';
+
+      const lockBtn = document.createElement("button");
+      lockBtn.className = "lock-btn" + (balance.locks[i] ? " locked" : "");
+      lockBtn.title = balance.locks[i] ? "Locked — won't change on shuffle" : "Lock this matchup";
+      lockBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>';
+      lockBtn.addEventListener("click", () => {
+        balance.locks[i] = !balance.locks[i];
+        saveBalanceDraft();
+        renderBalanceMatchups();
+      });
+
+      top.appendChild(teamsWrap);
+      top.appendChild(lockBtn);
+      card.appendChild(top);
+
+      if (unbalanced){
+        const flag = document.createElement("div");
+        flag.className = "matchup-flag";
+        const suggestion = buildBalanceSuggestion(teamA.players, teamA.name, teamB.players, teamB.name);
+        flag.innerHTML = '<div class="flag-warn">Unbalanced · '+diff+' pt gap</div>' +
+          '<div class="flag-suggest">' + (suggestion || "No single player swap improves the balance further — try adjusting the rosters directly.") + '</div>';
+        card.appendChild(flag);
+      }
+
+      balanceMatchupsMode.appendChild(card);
+    });
+  }
+
+  /* ---------- Team creator sub-mode (auto-balanced teams from the players database) ---------- */
+
+  function sanitizeTeamgen(){
+    const validIds = new Set(players.map(p => p.id));
+    teamgen.participantIds = teamgen.participantIds.filter(id => validIds.has(id));
+    teamgen.teams.forEach(t => { t.playerIds = t.playerIds.filter(id => validIds.has(id)); });
+    teamgen.unassigned = teamgen.unassigned.filter(id => validIds.has(id));
+    teamgen.teamSize = Math.max(MIN_TEAM_SIZE, Math.min(MAX_TEAM_SIZE, teamgen.teamSize || DEFAULT_TEAM_SIZE));
+    if (!teamgen.roleRules) teamgen.roleRules = defaultRoleRules();
+    ROLES.forEach(role => {
+      if (!teamgen.roleRules[role]) teamgen.roleRules[role] = { min: 1, max: null };
+      const rule = teamgen.roleRules[role];
+      rule.min = Math.max(0, Math.min(teamgen.teamSize, rule.min || 0));
+      if (rule.max != null) rule.max = Math.max(0, Math.min(teamgen.teamSize, rule.max));
+    });
+  }
+
+  function teamgenPlayerHasRole(id, role){
+    const rec = teamgenPlayerRecord(id);
+    return !!(rec && rec.roles && rec.roles.includes(role));
+  }
+
+  // Whether a full team roster (array of player ids) satisfies every
+  // configured role min/max. Used to make sure automatic balancing never
+  // trades role compliance away for a smaller points gap.
+  function roleRulesSatisfied(idArr){
+    return ROLES.every(role => {
+      const rule = teamgen.roleRules[role] || { min: 0, max: null };
+      const count = idArr.filter(id => teamgenPlayerHasRole(id, role)).length;
+      if (rule.min && count < rule.min) return false;
+      if (rule.max != null && count > rule.max) return false;
+      return true;
+    });
+  }
+
+  // Checks a generated team's roster against the configured min/max role
+  // rules. Returns an array of human-readable problem strings (empty = OK).
+  function teamRoleStatus(team){
+    const list = teamgenTeamAsPlayersList(team);
+    const problems = [];
+    ROLES.forEach(role => {
+      const rule = teamgen.roleRules[role] || { min: 0, max: null };
+      const count = list.filter(p => p.roles && p.roles.includes(role)).length;
+      if (rule.min && count < rule.min) problems.push(role + ": needs " + rule.min + ", has " + count);
+      if (rule.max != null && count > rule.max) problems.push(role + ": max " + rule.max + ", has " + count);
+    });
+    return problems;
+  }
+
+  // Whether adding `rec` to `teamArr` (array of player ids) would push any
+  // of the player's roles past that role's configured max for the team.
+  function fitsRoleMax(teamArr, rec){
+    if (!rec.roles || !rec.roles.length) return true;
+    return rec.roles.every(role => {
+      const rule = teamgen.roleRules[role];
+      if (!rule || rule.max == null) return true;
+      const count = teamArr.filter(id => teamgenPlayerHasRole(id, role)).length;
+      return count < rule.max;
+    });
+  }
+
+  // Local-search balancing pass. Repeatedly finds the single cross-team
+  // player swap between the currently most- and least-loaded team that
+  // shrinks their points gap the most, and applies it only when it's a
+  // genuine improvement AND keeps role min/max satisfied on both sides.
+  // Runs until no further improving, rule-safe swap exists (or a safety
+  // iteration cap is hit), so generated/shuffled teams end up as close to
+  // even as the roster and role rules allow — instead of leaving that work
+  // to a one-off manual suggestion after the fact.
+  function localSearchBalance(teamArrs){
+    const teamTotal = (arr) => arr.reduce((s,id) => { const r = teamgenPlayerRecord(id); return s + (r ? RANK_POINTS[r.rank] : 0); }, 0);
+    const MAX_ITER = 300;
+    let iterations = 0;
+
+    while (iterations++ < MAX_ITER){
+      const totals = teamArrs.map(teamTotal);
+      let maxI = 0, minI = 0;
+      totals.forEach((t, i) => {
+        if (t > totals[maxI]) maxI = i;
+        if (t < totals[minI]) minI = i;
+      });
+      if (maxI === minI) break;
+      const curDiff = totals[maxI] - totals[minI];
+      if (curDiff <= 1) break;
+
+      let bestLocal = null;
+      teamArrs[maxI].forEach(pid => {
+        teamArrs[minI].forEach(qid => {
+          const pRec = teamgenPlayerRecord(pid), qRec = teamgenPlayerRecord(qid);
+          if (!pRec || !qRec) return;
+          const newMax = totals[maxI] - RANK_POINTS[pRec.rank] + RANK_POINTS[qRec.rank];
+          const newMin = totals[minI] - RANK_POINTS[qRec.rank] + RANK_POINTS[pRec.rank];
+          const newDiff = Math.abs(newMax - newMin);
+          if (newDiff >= curDiff) return;
+
+          const trialMax = teamArrs[maxI].filter(id => id !== pid).concat(qid);
+          const trialMin = teamArrs[minI].filter(id => id !== qid).concat(pid);
+          if (!roleRulesSatisfied(trialMax) || !roleRulesSatisfied(trialMin)) return;
+
+          if (!bestLocal || newDiff < bestLocal.newDiff) bestLocal = { pid, qid, newDiff };
+        });
+      });
+
+      if (!bestLocal) break;
+      teamArrs[maxI] = teamArrs[maxI].filter(id => id !== bestLocal.pid).concat(bestLocal.qid);
+      teamArrs[minI] = teamArrs[minI].filter(id => id !== bestLocal.qid).concat(bestLocal.pid);
+    }
+
+    return teamArrs;
+  }
+
+  // Best-effort role-aware team assignment. Phase 1 greedily satisfies each
+  // role's minimum count per team (highest ranked eligible player first,
+  // round-robin across teams). Phase 2 fills remaining slots by points in a
+  // snake order, skipping a team for a given player if it would exceed a
+  // role's max there (falling back to "any team with room" if every team
+  // would violate the max, so nobody is left stranded needlessly). Phase 3
+  // runs a local-search balancing pass to close remaining points gaps
+  // without breaking role rules.
+  function roleAwareAssign(availableIds, numTeams, size){
+    const teamArrs = Array.from({length: numTeams}, () => []);
+    const remaining = new Set(availableIds);
+
+    ROLES.forEach(role => {
+      const rule = teamgen.roleRules[role] || { min: 0, max: null };
+      if (!rule.min) return;
+      let progress = true;
+      while (progress){
+        progress = false;
+        for (let t = 0; t < numTeams; t++){
+          if (teamArrs[t].length >= size) continue;
+          const currentCount = teamArrs[t].filter(id => teamgenPlayerHasRole(id, role)).length;
+          if (currentCount >= rule.min) continue;
+          const candidates = [...remaining]
+            .map(teamgenPlayerRecord)
+            .filter(p => p && p.roles && p.roles.includes(role))
+            .sort((a,b) => RANK_POINTS[b.rank] - RANK_POINTS[a.rank]);
+          if (!candidates.length) continue;
+          const chosen = candidates[0];
+          teamArrs[t].push(chosen.id);
+          remaining.delete(chosen.id);
+          progress = true;
+        }
+      }
+    });
+
+    const sortedRemaining = [...remaining]
+      .map(teamgenPlayerRecord)
+      .filter(Boolean)
+      .sort((a,b) => RANK_POINTS[b.rank] - RANK_POINTS[a.rank])
+      .map(p => p.id);
+
+    const unassigned = [];
+    let t = 0, dir = 1;
+    sortedRemaining.forEach(id => {
+      const rec = teamgenPlayerRecord(id);
+      let placedIdx = -1, attempts = 0, tt = t, ddir = dir;
+      while (attempts < numTeams){
+        if (teamArrs[tt].length < size && fitsRoleMax(teamArrs[tt], rec)){ placedIdx = tt; break; }
+        tt += ddir;
+        if (tt >= numTeams){ tt = numTeams - 1; ddir = -1; }
+        else if (tt < 0){ tt = 0; ddir = 1; }
+        attempts++;
+      }
+      if (placedIdx === -1){
+        attempts = 0; tt = t; ddir = dir;
+        while (attempts < numTeams){
+          if (teamArrs[tt].length < size){ placedIdx = tt; break; }
+          tt += ddir;
+          if (tt >= numTeams){ tt = numTeams - 1; ddir = -1; }
+          else if (tt < 0){ tt = 0; ddir = 1; }
+          attempts++;
+        }
+      }
+      if (placedIdx === -1){ unassigned.push(id); return; }
+      teamArrs[placedIdx].push(id);
+      t = placedIdx + dir;
+      if (t >= numTeams){ t = numTeams - 1; dir = -1; }
+      else if (t < 0){ t = 0; dir = 1; }
+    });
+
+    localSearchBalance(teamArrs);
+
+    return { teamArrs, unassigned };
+  }
+
+  function teamgenPlayerRecord(id){ return players.find(p => p.id === id) || null; }
+
+  function teamgenTeamAsPlayersList(team){
+    return team.playerIds.map(teamgenPlayerRecord).filter(Boolean);
+  }
+
+  function teamgenTeamTotals(team){
+    const list = teamgenTeamAsPlayersList(team);
+    const total = list.reduce((s,p) => s + RANK_POINTS[p.rank], 0);
+    const avg = list.length ? total / list.length : 0;
+    return { total, avg, count: list.length };
+  }
+
+  // Balanced snake-draft assignment: sorted (desc) ids get dealt to teams in a
+  // snake pattern (0..N-1, N-1..0, ...), skipping any team once it hits `size`.
+  function snakeAssign(sortedIds, numTeams, size){
+    const teamArrs = Array.from({length: numTeams}, () => []);
+    const unassigned = [];
+    let t = 0, dir = 1;
+    sortedIds.forEach(id => {
+      let attempts = 0, placed = false;
+      while (attempts < numTeams){
+        if (teamArrs[t].length < size){ teamArrs[t].push(id); placed = true; break; }
+        t += dir;
+        if (t >= numTeams){ t = numTeams - 1; dir = -1; }
+        else if (t < 0){ t = 0; dir = 1; }
+        attempts++;
+      }
+      if (!placed){ unassigned.push(id); return; }
+      t += dir;
+      if (t >= numTeams){ t = numTeams - 1; dir = -1; }
+      else if (t < 0){ t = 0; dir = 1; }
+    });
+    return { teamArrs, unassigned };
+  }
+
+  function generateTeamgenTeams(){
+    const size = teamgen.teamSize;
+    const numTeams = Math.floor(teamgen.participantIds.length / size);
+    if (numTeams < 2){
+      toast("Need at least " + (size*2) + " players selected to form two teams of " + size);
+      return;
+    }
+    const { teamArrs, unassigned } = roleAwareAssign(teamgen.participantIds, numTeams, size);
+    teamgen.teams = teamArrs.map((ids, i) => ({ id: uid(), name: "Team " + (i+1), playerIds: ids, locked: false }));
+    teamgen.unassigned = unassigned;
+    saveTeamgenDraft();
+    renderBalanceTeamgen();
+    reveal(balanceTeamgenMode);
+    toast("Teams generated");
+  }
+
+  function shuffleTeamgenTeams(){
+    if (!teamgen.teams.length) return;
+    const size = teamgen.teamSize;
+    const lockedTeams = teamgen.teams.filter(t => t.locked);
+    const unlockedTeams = teamgen.teams.filter(t => !t.locked);
+    if (!unlockedTeams.length){ toast("All teams are locked"); return; }
+
+    const pool = [];
+    unlockedTeams.forEach(t => pool.push(...t.playerIds));
+    pool.push(...teamgen.unassigned);
+
+    const { teamArrs, unassigned } = roleAwareAssign(pool, unlockedTeams.length, size);
+    unlockedTeams.forEach((t, i) => { t.playerIds = teamArrs[i]; });
+    teamgen.unassigned = unassigned;
+    teamgen.teams = teamgen.teams.map(t => lockedTeams.includes(t) ? t : unlockedTeams.find(u => u.id === t.id) || t);
+    saveTeamgenDraft();
+    renderBalanceTeamgen();
+    reveal(balanceTeamgenMode);
+    toast("Shuffled");
+  }
+
+  function addEmptyTeamgenTeam(){
+    teamgen.teams.push({ id: uid(), name: "Team " + (teamgen.teams.length + 1), playerIds: [], locked: false });
+    saveTeamgenDraft();
+    renderBalanceTeamgen();
+    reveal(balanceTeamgenMode);
+  }
+
+  function removeTeamgenTeam(teamId){
+    const t = teamgen.teams.find(t => t.id === teamId);
+    if (!t) return;
+    teamgen.unassigned.push(...t.playerIds);
+    teamgen.teams = teamgen.teams.filter(t => t.id !== teamId);
+    saveTeamgenDraft();
+    renderBalanceTeamgen();
+    reveal(balanceTeamgenMode);
+    toast("Team removed");
+  }
+
+  function movePlayerBetween(playerId, fromTeamId, toTeamId){
+    if (fromTeamId === null) teamgen.unassigned = teamgen.unassigned.filter(id => id !== playerId);
+    else { const ft = teamgen.teams.find(t => t.id === fromTeamId); if (ft) ft.playerIds = ft.playerIds.filter(id => id !== playerId); }
+
+    if (toTeamId === null) teamgen.unassigned.push(playerId);
+    else { const tt = teamgen.teams.find(t => t.id === toTeamId); if (tt) tt.playerIds.push(playerId); }
+
+    saveTeamgenDraft();
+    renderBalanceTeamgen();
+    reveal(balanceTeamgenMode);
+  }
+
+  function openMovePlayerMenu(anchorEl, playerId, sourceTeamId){
+    const items = [];
+    teamgen.teams.forEach(t => {
+      if (t.id === sourceTeamId) return;
+      if (t.playerIds.length < teamgen.teamSize){
+        items.push({ label: "Move to " + t.name, action: () => movePlayerBetween(playerId, sourceTeamId, t.id) });
+      }
+    });
+    if (sourceTeamId !== null){
+      items.push({ label: "Move to unassigned", action: () => movePlayerBetween(playerId, sourceTeamId, null) });
+    }
+    if (!items.length) items.push({ label: "No room on another team", action: () => {} });
+    const r = anchorEl.getBoundingClientRect();
+    showCtxMenu(r.left, r.bottom + 4, items);
+  }
+
+  function saveGeneratedTeamAsTeam(genTeam){
+    const body = document.createElement("div");
+    const label = document.createElement("div");
+    label.className = "field-label";
+    label.textContent = "Team name";
+    const input = document.createElement("input");
+    input.type = "text";
+    input.style.marginTop = "0";
+    input.value = genTeam.name;
+    body.appendChild(label);
+    body.appendChild(input);
+
+    showModal("Save as team", body, [
+      { label: "Cancel", variant: "btn-ghost", onClick: closeModal },
+      { label: "Save", variant: "btn-primary", onClick: async () => {
+        const name = input.value.trim() || "Untitled team";
+        const playersCopy = teamgenTeamAsPlayersList(genTeam).map(p => ({ name: p.name, rank: p.rank, roles: p.roles ? p.roles.slice() : [] }));
+        teams.push({ id: uid(), name, players: playersCopy, createdAt: Date.now(), updatedAt: Date.now() });
+        await saveTeamsToStore();
+        closeModal();
+        toast("Saved to Saved teams");
+      }}
+    ]);
+    setTimeout(() => input.focus(), 30);
+  }
+
+  function renderBalanceTeamgen(){
+    sanitizeTeamgen();
+    balanceTeamgenMode.innerHTML = "";
+
+    if (!players.length){
+      const empty = document.createElement("div");
+      empty.className = "empty-state";
+      empty.innerHTML = "<p>No players saved yet. Add players in the Players tab, then come back here to generate balanced teams.</p>";
+      const btn = document.createElement("button");
+      btn.className = "btn btn-primary";
+      btn.textContent = "Go to players";
+      btn.addEventListener("click", () => { view = "players"; renderNav(); renderView(); });
+      empty.appendChild(btn);
+      balanceTeamgenMode.appendChild(empty);
+      return;
+    }
+
+    // Player picker
+    const chipList = document.createElement("div");
+    chipList.className = "chip-list";
+    players.slice().sort((a,b) => a.name.localeCompare(b.name)).forEach(pl => {
+      const selected = teamgen.participantIds.includes(pl.id);
+      const chip = document.createElement("div");
+      chip.className = "chip" + (selected ? " selected" : "");
+      chip.innerHTML =
+        '<span class="chip-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 12 9 17 20 6"/></svg></span>' +
+        '<span>'+escapeHtml(pl.name)+'</span>' +
+        '<span class="chip-pts">'+RANK_POINTS[pl.rank]+' pts</span>';
+      chip.addEventListener("click", () => {
+        if (selected) teamgen.participantIds = teamgen.participantIds.filter(id => id !== pl.id);
+        else teamgen.participantIds.push(pl.id);
+        saveTeamgenDraft();
+        renderBalanceTeamgen();
+      });
+      chipList.appendChild(chip);
+    });
+    balanceTeamgenMode.appendChild(chipList);
+
+    // Role requirements panel
+    const roleRulesPanel = document.createElement("div");
+    roleRulesPanel.className = "role-rules-panel";
+    const rrTitle = document.createElement("div");
+    rrTitle.className = "field-label";
+    rrTitle.textContent = "Role requirements per team (min / max — blank max = no limit)";
+    roleRulesPanel.appendChild(rrTitle);
+
+    const rrRow = document.createElement("div");
+    rrRow.className = "role-rules-row";
+    ROLES.forEach(role => {
+      const rule = teamgen.roleRules[role];
+      const item = document.createElement("div");
+      item.className = "role-rule-item";
+
+      const badge = document.createElement("span");
+      badge.innerHTML = roleBadgeHTML(role);
+      item.appendChild(badge);
+
+      const label = document.createElement("span");
+      label.className = "role-rule-name";
+      label.textContent = role;
+      item.appendChild(label);
+
+      const minWrap = document.createElement("div");
+      minWrap.className = "rr-field";
+      const minLbl = document.createElement("span");
+      minLbl.className = "rr-sublabel";
+      minLbl.textContent = "min";
+      const minInput = document.createElement("input");
+      minInput.type = "number";
+      minInput.min = 0;
+      minInput.max = teamgen.teamSize;
+      minInput.value = rule.min;
+      minInput.title = "Minimum " + role + "s per team";
+      minInput.addEventListener("change", () => {
+        let v = parseInt(minInput.value, 10);
+        if (isNaN(v) || v < 0) v = 0;
+        rule.min = Math.min(teamgen.teamSize, v);
+        saveTeamgenDraft();
+        renderBalanceTeamgen();
+      });
+      minWrap.appendChild(minLbl);
+      minWrap.appendChild(minInput);
+      item.appendChild(minWrap);
+
+      const maxWrap = document.createElement("div");
+      maxWrap.className = "rr-field";
+      const maxLbl = document.createElement("span");
+      maxLbl.className = "rr-sublabel";
+      maxLbl.textContent = "max";
+      const maxInput = document.createElement("input");
+      maxInput.type = "number";
+      maxInput.min = 0;
+      maxInput.max = teamgen.teamSize;
+      maxInput.placeholder = "None";
+      maxInput.value = rule.max == null ? "" : rule.max;
+      maxInput.title = "Maximum " + role + "s per team (blank = no limit)";
+      maxInput.addEventListener("change", () => {
+        const raw = maxInput.value.trim();
+        rule.max = raw === "" ? null : Math.max(0, Math.min(teamgen.teamSize, parseInt(raw, 10) || 0));
+        saveTeamgenDraft();
+        renderBalanceTeamgen();
+      });
+      maxWrap.appendChild(maxLbl);
+      maxWrap.appendChild(maxInput);
+      item.appendChild(maxWrap);
+
+      rrRow.appendChild(item);
+    });
+    roleRulesPanel.appendChild(rrRow);
+    balanceTeamgenMode.appendChild(roleRulesPanel);
+
+    // Config: team size + counts + actions
+    const config = document.createElement("div");
+    config.className = "teamgen-config";
+
+    const sizeField = document.createElement("div");
+    sizeField.className = "teamgen-field";
+    const sizeLabel = document.createElement("div");
+    sizeLabel.className = "field-label";
+    sizeLabel.textContent = "Players per team";
+    const sizeInput = document.createElement("input");
+    sizeInput.type = "number";
+    sizeInput.min = MIN_TEAM_SIZE;
+    sizeInput.max = MAX_TEAM_SIZE;
+    sizeInput.value = teamgen.teamSize;
+    sizeInput.addEventListener("change", () => {
+      let v = parseInt(sizeInput.value, 10);
+      if (isNaN(v)) v = DEFAULT_TEAM_SIZE;
+      v = Math.max(MIN_TEAM_SIZE, Math.min(MAX_TEAM_SIZE, v));
+      sizeInput.value = v;
+      teamgen.teamSize = v;
+      saveTeamgenDraft();
+      renderBalanceTeamgen();
+    });
+    sizeField.appendChild(sizeLabel);
+    sizeField.appendChild(sizeInput);
+    config.appendChild(sizeField);
+
+    const genBtn = document.createElement("button");
+    genBtn.className = "btn btn-primary";
+    genBtn.textContent = "Generate balanced teams";
+    genBtn.disabled = teamgen.participantIds.length < teamgen.teamSize * 2;
+    genBtn.addEventListener("click", generateTeamgenTeams);
+    config.appendChild(genBtn);
+
+    const shuffleBtn = document.createElement("button");
+    shuffleBtn.className = "btn";
+    shuffleBtn.textContent = "Shuffle";
+    shuffleBtn.disabled = !teamgen.teams.length;
+    shuffleBtn.title = "Randomly re-balance unlocked teams. Lock a team first to keep its roster fixed.";
+    shuffleBtn.addEventListener("click", shuffleTeamgenTeams);
+    config.appendChild(shuffleBtn);
+
+    const addTeamBtn = document.createElement("button");
+    addTeamBtn.className = "btn btn-ghost";
+    addTeamBtn.textContent = "Add empty team";
+    addTeamBtn.addEventListener("click", addEmptyTeamgenTeam);
+    config.appendChild(addTeamBtn);
+
+    const countInfo = document.createElement("div");
+    countInfo.className = "teamgen-count";
+    countInfo.innerHTML = "<b>" + teamgen.participantIds.length + "</b> players selected · <b>" + Math.floor(teamgen.participantIds.length / teamgen.teamSize) + "</b> full teams possible";
+    config.appendChild(countInfo);
+
+    balanceTeamgenMode.appendChild(config);
+
+    if (teamgen.participantIds.length < teamgen.teamSize * 2){
+      const hint = document.createElement("div");
+      hint.className = "empty-state";
+      hint.innerHTML = "<p>Select at least " + (teamgen.teamSize * 2) + " players above (two full teams of " + teamgen.teamSize + ") to generate teams.</p>";
+      balanceTeamgenMode.appendChild(hint);
+      if (!teamgen.teams.length) return;
+    }
+
+    if (!teamgen.teams.length){
+      const hint = document.createElement("div");
+      hint.className = "empty-state";
+      hint.innerHTML = "<p>Click \"Generate balanced teams\" to split these players into evenly matched rosters.</p>";
+      balanceTeamgenMode.appendChild(hint);
+      return;
+    }
+
+    // Overall balance banner
+    const totalsList = teamgen.teams.map(t => teamgenTeamTotals(t));
+    const nonEmpty = teamgen.teams.map((t,i) => ({ t, tot: totalsList[i] })).filter(x => x.tot.count > 0);
+    if (nonEmpty.length >= 2){
+      const maxEntry = nonEmpty.reduce((m,x) => x.tot.total > m.tot.total ? x : m, nonEmpty[0]);
+      const minEntry = nonEmpty.reduce((m,x) => x.tot.total < m.tot.total ? x : m, nonEmpty[0]);
+      const diff = maxEntry.tot.total - minEntry.tot.total;
+      const avg = totalsList.reduce((s,x)=>s+x.total,0) / nonEmpty.length;
+      const unbalanced = diff > Math.max(6, avg * 0.2);
+
+      const banner = document.createElement("div");
+      banner.className = "balance-banner" + (unbalanced ? " warn" : "");
+      if (unbalanced){
+        let html = '<div class="flag-warn">Unbalanced · ' + diff + ' pt gap between <b>' + escapeHtml(maxEntry.t.name) + '</b> and <b>' + escapeHtml(minEntry.t.name) + '</b></div>';
+        const suggestion = buildBalanceSuggestion(teamgenTeamAsPlayersList(maxEntry.t), maxEntry.t.name, teamgenTeamAsPlayersList(minEntry.t), minEntry.t.name);
+        html += '<div class="flag-suggest">' + (suggestion || "No single swap closes this gap further — the auto-balancer already applied the best trades it could find without breaking role requirements.") + '</div>';
+        banner.innerHTML = html;
+      } else {
+        banner.textContent = "Teams are balanced within " + diff + " pts of each other.";
+      }
+      balanceTeamgenMode.appendChild(banner);
+    }
+
+    // Team cards
+    const wrap = document.createElement("div");
+    wrap.className = "gen-teams-wrap";
+
+    teamgen.teams.forEach(t => {
+      const tot = teamgenTeamTotals(t);
+      const roleIssues = tot.count > 0 ? teamRoleStatus(t) : [];
+      const card = document.createElement("div");
+      card.className = "gen-team-card" + (t.locked ? " locked" : "") + (roleIssues.length ? " role-warn" : "");
+
+      const head = document.createElement("div");
+      head.className = "gen-team-head";
+      const nameInput = document.createElement("input");
+      nameInput.type = "text";
+      nameInput.value = t.name;
+      nameInput.addEventListener("input", (e) => { t.name = e.target.value; saveTeamgenDraft(); });
+      head.appendChild(nameInput);
+
+      if (roleIssues.length){
+        const warnIcon = document.createElement("span");
+        warnIcon.className = "role-warn-icon";
+        warnIcon.title = "Doesn't meet role requirements: " + roleIssues.join("; ");
+        warnIcon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 1 21h22L12 2Z"/><line x1="12" y1="9" x2="12" y2="14"/><circle cx="12" cy="17.3" r="0.9" fill="currentColor" stroke="none"/></svg>';
+        head.appendChild(warnIcon);
+      }
+
+      const lockBtn = document.createElement("button");
+      lockBtn.className = "lock-btn" + (t.locked ? " locked" : "");
+      lockBtn.title = t.locked ? "Locked — won't change on shuffle" : "Lock this team";
+      lockBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>';
+      lockBtn.addEventListener("click", () => { t.locked = !t.locked; saveTeamgenDraft(); renderBalanceTeamgen(); });
+      head.appendChild(lockBtn);
+
+      card.appendChild(head);
+
+      const stats = document.createElement("div");
+      stats.className = "gen-team-stats";
+      stats.innerHTML = '<div><b>'+tot.total+'</b>points</div><div><b>'+tot.avg.toFixed(1)+'</b>avg</div><div><b>'+tot.count+'/'+teamgen.teamSize+'</b>filled</div>';
+      card.appendChild(stats);
+
+      if (roleIssues.length){
+        const issuesEl = document.createElement("div");
+        issuesEl.className = "gen-team-role-issues";
+        issuesEl.textContent = "Role requirements not met: " + roleIssues.join(" · ");
+        card.appendChild(issuesEl);
+      }
+
+      const plist = document.createElement("div");
+      plist.className = "gen-player-list";
+      t.playerIds.forEach(pid => {
+        const rec = teamgenPlayerRecord(pid);
+        if (!rec) return;
+        const row = document.createElement("div");
+        row.className = "gen-player-row";
+        row.innerHTML =
+          rankBadgeHTML(rec.rank) +
+          '<span class="gen-player-name">'+escapeHtml(rec.name)+'</span>' +
+          roleBadgesHTML(rec.roles) +
+          '<span class="gen-player-pts">'+RANK_POINTS[rec.rank]+'</span>';
+        const kb = document.createElement("button");
+        kb.className = "kebab sm";
+        kb.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg>';
+        kb.addEventListener("click", (e) => { e.stopPropagation(); openMovePlayerMenu(kb, pid, t.id); });
+        row.appendChild(kb);
+        plist.appendChild(row);
+      });
+      if (!t.playerIds.length){
+        const empty = document.createElement("div");
+        empty.className = "gen-team-empty";
+        empty.textContent = "No players yet";
+        plist.appendChild(empty);
+      }
+      card.appendChild(plist);
+
+      const foot = document.createElement("div");
+      foot.className = "gen-team-foot";
+      const saveBtn = document.createElement("button");
+      saveBtn.className = "btn";
+      saveBtn.textContent = "Save as team";
+      saveBtn.disabled = !t.playerIds.length;
+      saveBtn.addEventListener("click", () => saveGeneratedTeamAsTeam(t));
+      const rmBtn = document.createElement("button");
+      rmBtn.className = "btn btn-danger";
+      rmBtn.textContent = "Remove";
+      rmBtn.addEventListener("click", () => removeTeamgenTeam(t.id));
+      foot.appendChild(saveBtn);
+      foot.appendChild(rmBtn);
+      card.appendChild(foot);
+
+      wrap.appendChild(card);
+    });
+
+    balanceTeamgenMode.appendChild(wrap);
+
+    // Unassigned pool
+    if (teamgen.unassigned.length){
+      const box = document.createElement("div");
+      box.className = "unassigned-box";
+      const title = document.createElement("div");
+      title.className = "ua-title";
+
+      let suggestionText = teamgen.unassigned.length + " player" + (teamgen.unassigned.length===1?"":"s") + " left over — team size " + teamgen.teamSize + " doesn't divide the selected group evenly.";
+      const need = teamgen.teamSize - teamgen.unassigned.length;
+      if (need > 0){
+        const avgPts = teamgen.unassigned.reduce((s,id) => { const r = teamgenPlayerRecord(id); return s + (r ? RANK_POINTS[r.rank] : 0); }, 0) / teamgen.unassigned.length;
+        const suggestedRank = closestRankToPoints(avgPts);
+        suggestionText += " Add " + need + " more player" + (need===1?"":"s") + " (around <b>" + escapeHtml(suggestedRank) + "</b>) to fill another team, or move these onto existing teams with room.";
+      } else {
+        suggestionText += " Move them onto existing teams with room, or remove players from a team to free up a spot.";
+      }
+      title.innerHTML = suggestionText;
+      box.appendChild(title);
+
+      const ualist = document.createElement("div");
+      ualist.className = "ua-player-list";
+      teamgen.unassigned.forEach(pid => {
+        const rec = teamgenPlayerRecord(pid);
+        if (!rec) return;
+        const row = document.createElement("div");
+        row.className = "gen-player-row";
+        row.innerHTML =
+          rankBadgeHTML(rec.rank) +
+          '<span class="gen-player-name">'+escapeHtml(rec.name)+'</span>' +
+          roleBadgesHTML(rec.roles) +
+          '<span class="gen-player-pts">'+RANK_POINTS[rec.rank]+'</span>';
+        const kb = document.createElement("button");
+        kb.className = "kebab sm";
+        kb.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg>';
+        kb.addEventListener("click", (e) => { e.stopPropagation(); openMovePlayerMenu(kb, pid, null); });
+        row.appendChild(kb);
+        ualist.appendChild(row);
+      });
+      box.appendChild(ualist);
+      balanceTeamgenMode.appendChild(box);
+    }
+  }
+
+  /* ============================================================
+     Init
+  ============================================================ */
+  async function init(){
+    const teamsRaw = await storeGet("sgs_teams");
+    teams = teamsRaw ? JSON.parse(teamsRaw) : [];
+
+    const playersRaw = await storeGet("sgs_players");
+    players = playersRaw ? JSON.parse(playersRaw) : [];
+
+    const draftRaw = await storeGet("sgs_draft");
+    if (draftRaw){
+      try {
+        const d = JSON.parse(draftRaw);
+        builderPlayers = (d.players && d.players.length) ? d.players.map(p => ({ id: uid(), name: p.name, rank: p.rank, roles: p.roles ? p.roles.slice() : [] })) : defaultBuilder();
+        editingTeamId = d.editingTeamId || null;
+        if (editingTeamId && !teams.find(t => t.id === editingTeamId)) editingTeamId = null;
+      } catch(e){ builderPlayers = defaultBuilder(); }
+    } else {
+      builderPlayers = defaultBuilder();
+    }
+
+    const compareRaw = await storeGet("sgs_compare");
+    if (compareRaw){
+      try { const c = JSON.parse(compareRaw); if (c.A && c.B) compare = c; } catch(e){}
+    }
+
+    const balanceRaw = await storeGet("sgs_balance");
+    if (balanceRaw){
+      try {
+        const b = JSON.parse(balanceRaw);
+        if (b.participants) balance = { participants: b.participants || [], matchups: b.matchups || [], locks: b.locks || [] };
+      } catch(e){}
+    }
+
+    const balanceModeRaw = await storeGet("sgs_balance_mode");
+    if (balanceModeRaw === "matchups" || balanceModeRaw === "teamgen") balanceMode = balanceModeRaw;
+
+    const teamgenRaw = await storeGet("sgs_teamgen");
+    if (teamgenRaw){
+      try {
+        const tg = JSON.parse(teamgenRaw);
+        const loadedRules = tg.roleRules || {};
+        const mergedRules = defaultRoleRules();
+        ROLES.forEach(role => {
+          if (loadedRules[role]){
+            mergedRules[role] = { min: loadedRules[role].min ?? 1, max: loadedRules[role].max ?? null };
+          }
+        });
+        teamgen = {
+          participantIds: tg.participantIds || [],
+          teamSize: tg.teamSize || DEFAULT_TEAM_SIZE,
+          teams: tg.teams || [],
+          unassigned: tg.unassigned || [],
+          roleRules: mergedRules
+        };
+      } catch(e){}
+    }
+
+    renderNav();
+    renderBuilder();
+    renderPlayers();
+    renderTeams();
+    renderCompare();
+    renderBalance();
+  }
+
+  init();
+
+})();
+</script>
+
+</body>
+</html>
