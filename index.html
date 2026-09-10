@@ -280,9 +280,6 @@
     flex-shrink: 0;
     transition: transform 0.15s ease;
   }
-  .rbadge-dots { display: flex; gap: 2px; }
-  .rbadge-dots i { width: 3px; height: 3px; border-radius: 50%; background: var(--border); display: block; font-style: normal; }
-  .rbadge-dots i.on { background: var(--text-dim); }
   .xsel-opt:hover .rbadge, .xsel-trigger:hover .rbadge { transform: scale(1.18); }
 
   /* ---------- Role badges (Vanguard / Duelist / Strategist) ---------- */
@@ -882,12 +879,7 @@
     const meta = parseRank(rank);
     const imgFile = TIER_IMAGE[meta.tier] || TIER_IMAGE["Bronze"];
     const imgSrc = encodeURI(imgFile);
-    let dots = "";
-    if (meta.division){
-      const filled = 4 - meta.division;
-      dots = '<span class="rbadge-dots">' + [1,2,3].map(i => '<i class="'+(i<=filled?"on":"")+'"></i>').join("") + '</span>';
-    }
-    return '<span class="rbadge-wrap"><img class="rbadge" src="' + imgSrc + '" alt="' + escapeHtml(meta.tier) + '">' + dots + '</span>';
+    return '<span class="rbadge-wrap"><img class="rbadge" src="' + imgSrc + '" alt="' + escapeHtml(meta.tier) + '"></span>';
   }
 
   function closestRankToPoints(pts){
