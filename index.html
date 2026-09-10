@@ -932,43 +932,57 @@
   }
 
   /* ============================================================
-     Storage (persistent artifact storage, with in-memory fallback)
-
-     IMPORTANT: we deliberately do NOT cache "is window.storage available"
-     in a variable computed once at script-load time. In some hosting
-     contexts window.storage is attached to the page a beat after this
-     script starts running, so a one-time check can permanently (and
-     silently) lock the app into the in-memory-only fallback for the whole
-     session — which is exactly what caused progress not to persist across
-     reloads. Instead we re-check availability on every single read/write.
+     Storage — real browser localStorage, so data survives closing the
+     tab/browser and reopening it later, with no dependency on any
+     external service. Falls back to an in-memory object only if
+     localStorage genuinely isn't reachable (e.g. this page is running
+     inside a sandboxed preview that blocks browser storage APIs) — in
+     that case a banner is shown so it's obvious data won't survive a
+     refresh, instead of silently losing it.
   ============================================================ */
+  const STORAGE_PREFIX = "sgs::";
   let mem = {};
+  let localStorageOK = true;
 
-  function storageAvailable(){
-    return !!(window.storage && window.storage.get && window.storage.set);
-  }
-
-  async function storeGet(key){
-    if (!storageAvailable()) return mem[key] ?? null;
+  (function probeLocalStorage(){
     try {
-      const res = await window.storage.get(key, false);
-      return res ? res.value : (mem[key] ?? null);
+      const testKey = STORAGE_PREFIX + "__probe__";
+      window.localStorage.setItem(testKey, "1");
+      window.localStorage.removeItem(testKey);
+      localStorageOK = true;
     } catch(e){
-      // Covers both "key not found yet" (expected on first run) and any
-      // transient failure — fall back to whatever we have in memory.
-      return mem[key] ?? null;
+      localStorageOK = false;
+    }
+  })();
+
+  function storeGet(key){
+    if (!localStorageOK) return Promise.resolve(mem[key] ?? null);
+    try {
+      const raw = window.localStorage.getItem(STORAGE_PREFIX + key);
+      return Promise.resolve(raw === null ? (mem[key] ?? null) : raw);
+    } catch(e){
+      return Promise.resolve(mem[key] ?? null);
     }
   }
 
-  async function storeSet(key, value){
+  function storeSet(key, value){
     mem[key] = value; // always keep an in-memory copy as a safety net
-    if (!storageAvailable()) return true;
+    if (!localStorageOK) return Promise.resolve(true);
     try {
-      const result = await window.storage.set(key, value, false);
-      return !!result;
+      window.localStorage.setItem(STORAGE_PREFIX + key, value);
+      return Promise.resolve(true);
     } catch(e){
-      return false;
+      // e.g. storage quota exceeded, or private-browsing restrictions
+      return Promise.resolve(false);
     }
+  }
+
+  function showStorageWarningBanner(){
+    const bar = document.createElement("div");
+    bar.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:500;background:#3a1f26;color:#f2c9cf;font-size:0.82rem;padding:9px 16px;text-align:center;border-bottom:1px solid #e2596b;";
+    bar.textContent = "This browser/preview is blocking local storage, so progress won't be saved after you leave. Open this file directly in your browser (not inside a sandboxed preview) to enable saving.";
+    document.body.prepend(bar);
+    document.body.style.paddingTop = "38px";
   }
 
   function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
@@ -2803,6 +2817,8 @@
      Init
   ============================================================ */
   async function init(){
+    if (!localStorageOK) showStorageWarningBanner();
+
     const teamsRaw = await storeGet("sgs_teams");
     teams = teamsRaw ? JSON.parse(teamsRaw) : [];
 
