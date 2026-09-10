@@ -270,16 +270,16 @@
   .xsel-list::-webkit-scrollbar { width: 8px; }
   .xsel-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
-  /* ---------- Rank badges (original stylized emblems, not official game art) ---------- */
+  /* ---------- Rank badges (rendered from user-supplied PNGs in the repo) ---------- */
 
   .rbadge-wrap { display: inline-flex; flex-direction: column; align-items: center; gap: 3px; flex-shrink: 0; }
-  .rbadge { width: 17px; height: 17px; display: inline-block; box-shadow: 0 0 0 1px rgba(255,255,255,0.06) inset; transition: transform 0.15s ease; }
-  .rbadge.circ { border-radius: 50%; }
-  .rbadge.dia { clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
-  .rbadge.pent { clip-path: polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%); }
-  .rbadge.hex { clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%); }
-  .rbadge.star { clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); }
-  .rbadge.ring { box-shadow: 0 0 0 2px var(--bg) inset, 0 0 8px rgba(255,255,255,0.25); }
+  .rbadge {
+    width: 18px; height: 18px;
+    display: inline-block;
+    object-fit: contain;
+    flex-shrink: 0;
+    transition: transform 0.15s ease;
+  }
   .rbadge-dots { display: flex; gap: 2px; }
   .rbadge-dots i { width: 3px; height: 3px; border-radius: 50%; background: var(--border); display: block; font-style: normal; }
   .rbadge-dots i.on { background: var(--text-dim); }
@@ -853,18 +853,21 @@
   const MIN_CARDS = 1, MAX_CARDS = 18, DEFAULT_CARDS = 4;
   const MIN_TEAM_SIZE = 1, MAX_TEAM_SIZE = 18, DEFAULT_TEAM_SIZE = 5;
 
-  // Original, minimalist stylized rank emblems (not official game art) so the
-  // dropdown still gives a visual cue for each tier without reproducing copyrighted assets.
-  const TIER_STYLE = {
-    "Bronze":       { shape: "dia",  color: "#b3703f" },
-    "Silver":       { shape: "circ", color: "#a7b0bd" },
-    "Gold":         { shape: "pent", color: "#e0b23c" },
-    "Platinum":     { shape: "hex",  color: "#49c2b8" },
-    "Diamond":      { shape: "dia",  color: "#5b9dff" },
-    "Grandmaster":  { shape: "star", color: "#a35bff" },
-    "Celestial":    { shape: "star", color: "#f4dd8c" },
-    "Eternity":      { shape: "circ ring", gradient: "linear-gradient(135deg,#ff9ad6,#8ad4ff)" },
-    "One Above All": { shape: "circ ring", gradient: "linear-gradient(135deg,#ffe9a8,#ffffff)" }
+  // Rank tier -> PNG filename, sitting alongside this HTML file in the same
+  // repo/folder (no external URL — just a relative filename). Filenames
+  // match what's actually in the repo, including "Gold-image.png" (capital
+  // G), "platinum-image.png" (lowercase p), and "One Above All-image.png"
+  // (spaces, no dashes, for that one).
+  const TIER_IMAGE = {
+    "Bronze":        "Bronze-image.png",
+    "Silver":        "Silver-image.png",
+    "Gold":          "Gold-image.png",
+    "Platinum":      "platinum-image.png",
+    "Diamond":       "Diamond-image.png",
+    "Grandmaster":   "Grandmaster-image.png",
+    "Celestial":     "Celestial-image.png",
+    "Eternity":      "Eternity-image.png",
+    "One Above All": "One Above All-image.png"
   };
 
   function parseRank(rank){
@@ -877,14 +880,14 @@
 
   function rankBadgeHTML(rank){
     const meta = parseRank(rank);
-    const style = TIER_STYLE[meta.tier] || { shape: "circ", color: "#5b8cff" };
-    const bg = style.gradient ? style.gradient : style.color;
+    const imgFile = TIER_IMAGE[meta.tier] || TIER_IMAGE["Bronze"];
+    const imgSrc = encodeURI(imgFile);
     let dots = "";
     if (meta.division){
       const filled = 4 - meta.division;
       dots = '<span class="rbadge-dots">' + [1,2,3].map(i => '<i class="'+(i<=filled?"on":"")+'"></i>').join("") + '</span>';
     }
-    return '<span class="rbadge-wrap"><span class="rbadge ' + style.shape + '" style="background:' + bg + '"></span>' + dots + '</span>';
+    return '<span class="rbadge-wrap"><img class="rbadge" src="' + imgSrc + '" alt="' + escapeHtml(meta.tier) + '">' + dots + '</span>';
   }
 
   function closestRankToPoints(pts){
