@@ -933,24 +933,42 @@
 
   /* ============================================================
      Storage (persistent artifact storage, with in-memory fallback)
+
+     IMPORTANT: we deliberately do NOT cache "is window.storage available"
+     in a variable computed once at script-load time. In some hosting
+     contexts window.storage is attached to the page a beat after this
+     script starts running, so a one-time check can permanently (and
+     silently) lock the app into the in-memory-only fallback for the whole
+     session — which is exactly what caused progress not to persist across
+     reloads. Instead we re-check availability on every single read/write.
   ============================================================ */
-  const hasStorage = !!(window.storage && window.storage.get && window.storage.set);
   let mem = {};
 
-  async function storeGet(key){
-    try {
-      if (!hasStorage) return mem[key] ?? null;
-      const res = await window.storage.get(key, false);
-      return res ? res.value : null;
-    } catch(e){ return mem[key] ?? null; }
+  function storageAvailable(){
+    return !!(window.storage && window.storage.get && window.storage.set);
   }
-  async function storeSet(key, value){
-    mem[key] = value;
+
+  async function storeGet(key){
+    if (!storageAvailable()) return mem[key] ?? null;
     try {
-      if (!hasStorage) return true;
-      await window.storage.set(key, value, false);
-      return true;
-    } catch(e){ return false; }
+      const res = await window.storage.get(key, false);
+      return res ? res.value : (mem[key] ?? null);
+    } catch(e){
+      // Covers both "key not found yet" (expected on first run) and any
+      // transient failure — fall back to whatever we have in memory.
+      return mem[key] ?? null;
+    }
+  }
+
+  async function storeSet(key, value){
+    mem[key] = value; // always keep an in-memory copy as a safety net
+    if (!storageAvailable()) return true;
+    try {
+      const result = await window.storage.set(key, value, false);
+      return !!result;
+    } catch(e){
+      return false;
+    }
   }
 
   function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
